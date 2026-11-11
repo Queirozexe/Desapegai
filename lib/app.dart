@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'features/auth/screens/home_screen.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/recover_password_screen.dart';
@@ -19,6 +19,7 @@ class DesapegaiApp extends StatelessWidget {
         '/': (context) => const LoginScreen(),
         '/cadastro': (context) => const RegisterScreen(),
         '/recuperar-senha': (context) => const RecoverPasswordScreen(),
+        '/inicio': (context) => const HomeScreen(),
       },
     );
   }
