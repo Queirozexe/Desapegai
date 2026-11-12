@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Moldura reutilizável das três telas de autenticação.
+/// Moldura reutilizável das três screens de autenticação.
 class AuthLayout extends StatelessWidget {
   const AuthLayout({
     super.key,
@@ -20,7 +20,7 @@ class AuthLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: showBrand ? null : AppBar(title: const Text('desapegaí')),
+      appBar: showBrand ? null : AppBar(title: const Text('Desapegaí')),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Center(
@@ -82,7 +82,7 @@ class _BrandHeader extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                'desapegaí',
+                'Desapegaí',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

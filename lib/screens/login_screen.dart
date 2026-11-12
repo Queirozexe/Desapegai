@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/auth_layout.dart';
+import '../theme/app_theme.dart';
+import '../widgets/auth_layout.dart';
+import '../controller/login_control.dart';
+import '../widgets/botoes.dart';
+import '../widgets/input.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _emailController = TextEditingController();
   final _senhaController = TextEditingController();
+  final LoginControl _loginControl = LoginControl();
 
   @override
   void dispose() {
@@ -23,16 +27,41 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+
   void _entrar() {
+    final email = _emailController.text.trim().toLowerCase();
+    final senha = _senhaController.text;
+
+    // Validação do e-mail
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe seu e-mail.'),
+        ),
+      );
+      return;
+    }
+
+    final emailValido = RegExp(
+      r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+    ).hasMatch(email);
+
+    if (!emailValido) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe um e-mail válido.'),
+        ),
+      );
+      return;
+    }
+
+    // Validação do campo de senha
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    final email = _emailController.text.trim().toLowerCase();
-    final senha = _senhaController.text;
-
-    if (email == 'usuario@desapegai.com' &&
-        senha == '12345678') {
+    // Verificação pelo Controller
+    if (_loginControl.validarLogin(email, senha)) {
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/inicio',
@@ -47,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return AuthLayout(
@@ -59,25 +89,10 @@ class _LoginScreenState extends State<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // E-mail
-            TextFormField(
+            Input(
+              'E-mail',
+              'voce@email.com',
               controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'E-mail',
-                hintText: 'voce@email.com',
-              ),
-              validator: (valor) {
-                if (valor == null || valor.trim().isEmpty) {
-                  return 'Informe seu e-mail.';
-                }
-
-                if (!valor.contains('@') ||
-                    !valor.contains('.')) {
-                  return 'Informe um e-mail válido.';
-                }
-
-                return null;
-              },
             ),
 
             const SizedBox(height: 16),
@@ -119,9 +134,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 12),
 
             // Botão de login
-            FilledButton(
+            Botoes(
+              'Entrar',
               onPressed: _entrar,
-              child: const Text('Entrar'),
             ),
 
             const SizedBox(height: 16),

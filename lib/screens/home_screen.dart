@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:desapegai/core/theme/app_theme.dart';
+import 'package:desapegai/theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen ({super.key});
@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(
                     children: [
                       const Text(
-                        'desapegaí',
+                        'Desapegaí',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
