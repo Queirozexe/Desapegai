@@ -1,4 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
+
 class RecuperacaoSenhaControl {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   String? validarEmail(String email) {
     final emailFormatado = email.trim();
 
@@ -15,5 +19,13 @@ class RecuperacaoSenhaControl {
     }
 
     return null;
+  }
+
+  Future<void> enviarEmailRecuperacao({
+    required String email,
+  }) async {
+    await _auth.sendPasswordResetEmail(
+      email: email.trim(),
+    );
   }
 }

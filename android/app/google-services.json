@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "767769456654",
+    "project_id": "desapegai-6d945",
+    "storage_bucket": "desapegai-6d945.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:767769456654:android:c6bb15d53d393e67698c5f",
+        "android_client_info": {
+          "package_name": "com.example.desapegai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgGZZlXkkZE2-Dr-z9yxfYjTU-uKC9B94"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
