@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../theme/app_theme.dart';
 import '../widgets/auth_layout.dart';
@@ -20,6 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _senhaController = TextEditingController();
   final LoginControl _loginControl = LoginControl();
 
+  bool _estaCarregando = false;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -27,12 +30,12 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _entrar() async {
+    if (_estaCarregando) return;
 
-  void _entrar() {
     final email = _emailController.text.trim().toLowerCase();
     final senha = _senhaController.text;
 
-    // Validação do e-mail
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -55,27 +58,79 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Validação do campo de senha
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Verificação pelo Controller
-    if (_loginControl.validarLogin(email, senha)) {
+    setState(() {
+      _estaCarregando = true;
+    });
+
+    try {
+      await _loginControl.entrar(
+        email: email,
+        senha: senha,
+      );
+
+      if (!mounted) return;
+
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/inicio',
             (route) => false,
       );
-    } else {
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String mensagem;
+
+      switch (e.code) {
+        case 'invalid-email':
+          mensagem = 'O endereço de e-mail informado é inválido.';
+          break;
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-credential':
+          mensagem = 'E-mail ou senha incorretos.';
+          break;
+        case 'user-disabled':
+          mensagem = 'Esta conta está desativada.';
+          break;
+        case 'too-many-requests':
+          mensagem = 'Muitas tentativas. Tente novamente mais tarde.';
+          break;
+        case 'network-request-failed':
+          mensagem = 'Falha de conexão. Verifique sua internet.';
+          break;
+        case 'operation-not-allowed':
+          mensagem = 'O login por e-mail e senha não está habilitado.';
+          break;
+        default:
+          mensagem = 'Não foi possível entrar. Tente novamente.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensagem)),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Erro durante o login: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('E-mail ou senha incorretos.'),
+          content: Text('Ocorreu um erro inesperado ao entrar.'),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _estaCarregando = false;
+        });
+      }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // E-mail
             Input(
               'E-mail',
               'voce@email.com',
@@ -97,7 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
             const SizedBox(height: 16),
 
-            // Senha
             TextFormField(
               controller: _senhaController,
               obscureText: true,
@@ -117,11 +170,12 @@ class _LoginScreenState extends State<LoginScreen> {
               },
             ),
 
-            // Recuperação de senha
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () {
+                onPressed: _estaCarregando
+                    ? null
+                    : () {
                   Navigator.pushNamed(
                     context,
                     '/recuperar-senha',
@@ -133,21 +187,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
             const SizedBox(height: 12),
 
-            // Botão de login
             Botoes(
-              'Entrar',
-              onPressed: _entrar,
+              _estaCarregando ? 'Entrando...' : 'Entrar',
+              onPressed: _estaCarregando ? null : _entrar,
             ),
 
             const SizedBox(height: 16),
 
-            // Cadastro
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text('Ainda não tem conta?'),
                 TextButton(
-                  onPressed: () {
+                  onPressed: _estaCarregando
+                      ? null
+                      : () {
                     Navigator.pushNamed(
                       context,
                       '/cadastro',

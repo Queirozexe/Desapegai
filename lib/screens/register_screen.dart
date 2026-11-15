@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../controller/cadastro_control.dart';
 import '../widgets/auth_layout.dart';
@@ -9,8 +10,7 @@ class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() =>
-      _RegisterScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -22,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final CadastroControl _cadastroControl = CadastroControl();
 
   bool _aceitouTermos = false;
+  bool _estaCarregando = false;
 
   @override
   void dispose() {
@@ -32,7 +33,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _criarConta() {
+  Future<void> _criarConta() async {
+    if (_estaCarregando) return;
+
     final erro = _cadastroControl.validarCadastro(
       nome: _nomeController.text,
       email: _emailController.text,
@@ -48,14 +51,69 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Dados válidos! O cadastro será ativado '
-              'após a integração com o Firebase.',
+    setState(() {
+      _estaCarregando = true;
+    });
+
+    try {
+      await _cadastroControl.cadastrarUsuario(
+        nome: _nomeController.text,
+        email: _emailController.text,
+        cidade: _cidadeController.text,
+        senha: _senhaController.text,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacementNamed(context, '/inicio');
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String mensagem;
+
+      switch (e.code) {
+        case 'email-already-in-use':
+          mensagem = 'Este e-mail já está cadastrado.';
+          break;
+        case 'invalid-email':
+          mensagem = 'O endereço de e-mail informado é inválido.';
+          break;
+        case 'weak-password':
+          mensagem = 'A senha informada é muito fraca.';
+          break;
+        case 'operation-not-allowed':
+          mensagem = 'O cadastro por e-mail e senha não está habilitado.';
+          break;
+        case 'network-request-failed':
+          mensagem = 'Falha de conexão. Verifique sua internet.';
+          break;
+        case 'too-many-requests':
+          mensagem = 'Muitas tentativas. Tente novamente mais tarde.';
+          break;
+        default:
+          mensagem = 'Não foi possível criar sua conta. Tente novamente.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensagem)),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Erro durante o cadastro: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ocorreu um erro inesperado ao criar sua conta.'),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _estaCarregando = false;
+        });
+      }
+    }
   }
 
   @override
@@ -105,7 +163,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _aceitouTermos,
-            onChanged: (valor) {
+            onChanged: _estaCarregando
+                ? null
+                : (valor) {
               setState(() {
                 _aceitouTermos = valor ?? false;
               });
@@ -120,14 +180,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 16),
 
           Botoes(
-            'Criar conta',
-            onPressed: _criarConta,
+            _estaCarregando ? 'Criando conta...' : 'Criar conta',
+            onPressed: _estaCarregando ? null : _criarConta,
           ),
 
           const SizedBox(height: 12),
 
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: _estaCarregando
+                ? null
+                : () => Navigator.pop(context),
             child: const Text('Já tem conta? Entrar'),
           ),
         ],

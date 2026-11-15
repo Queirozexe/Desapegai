@@ -1,0 +1,24 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "desapegai-6d945",
+          "appId": "1:767769456654:android:c6bb15d53d393e67698c5f",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "desapegai-6d945",
+          "configurations": {
+            "android": "1:767769456654:android:c6bb15d53d393e67698c5f"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

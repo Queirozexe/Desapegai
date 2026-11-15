@@ -1,9 +1,15 @@
-class LoginControl {
-  final String emailTeste = 'usuario@desapegai.com';
-  final String senhaTeste = '12345678';
+import 'package:firebase_auth/firebase_auth.dart';
 
-  bool validarLogin(String email, String senha) {
-    return email.trim().toLowerCase() == emailTeste &&
-        senha == senhaTeste;
+class LoginControl {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<UserCredential> entrar({
+    required String email,
+    required String senha,
+  }) async {
+    return await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: senha,
+    );
   }
 }

@@ -4,58 +4,73 @@ Aplicativo mobile desenvolvido em **Flutter**, com o objetivo de facilitar a doa
 
 Projeto desenvolvido como Trabalho de Graduação do curso de Análise e Desenvolvimento de Sistemas da Fatec Itapetininga.
 
+O Desapegaí é uma plataforma voltada exclusivamente a **doações gratuitas**. Não contempla venda de produtos, trocas ou intermediação de pagamentos.
+
 ## Status do desenvolvimento
 
-**Etapa 2 — Autenticação demonstrativa e Tela Inicial**
+O projeto está em desenvolvimento incremental. A autenticação já está integrada ao Firebase e os perfis dos usuários são armazenados no Cloud Firestore. A tela inicial ainda utiliza publicações demonstrativas.
 
-O projeto está em desenvolvimento incremental. Atualmente, possui quatro telas:
+### Funcionalidades implementadas
 
-- `LoginScreen` — Login com validação simples.
-- `RegisterScreen` — Cadastro visual de usuários.
-- `RecoverPasswordScreen` — Recuperação de senha demonstrativa.
-- `HomeScreen` — Tela inicial com publicações e filtros.
+- Cadastro de usuários com e-mail e senha.
+- Validação dos dados obrigatórios do cadastro.
+- Criação de contas pelo Firebase Authentication.
+- Persistência do perfil do usuário no Cloud Firestore.
+- Login com e-mail e senha pelo Firebase Authentication.
+- Recuperação de senha por e-mail, com link enviado pelo Firebase.
+- Exibição de mensagens de validação e de erros.
+- Estados de carregamento durante as operações de autenticação.
+- Tela inicial com publicações demonstrativas, busca e filtros por categoria.
 
-Nesta etapa, não existe integração com banco de dados, API ou serviço externo.
+### Funcionalidades em desenvolvimento ou planejadas
 
-## Funcionalidades implementadas
+- Gerenciamento automático da sessão de autenticação.
+- Redirecionamento inicial conforme o estado de autenticação.
+- Logout integrado ao Firebase Authentication.
+- Carregamento do perfil do usuário a partir do Firestore.
+- Tratamento de perfis que ainda não possuam documento no banco.
+- Detalhes e gerenciamento de publicações.
+- Mensagens, notificações e demais funcionalidades sociais.
 
-### 1. Login
+## Autenticação e armazenamento
 
-- Campos de e-mail e senha.
-- Validação de preenchimento e formato.
-- Comparação com credenciais fixas.
-- Exibição de mensagens de erro.
-- Redirecionamento para a Tela Inicial após login válido.
-- Navegação para Cadastro e Recuperação de Senha.
+### Firebase Authentication
 
-**Credenciais de teste:**
+O Firebase Authentication é utilizado para:
 
-- E-mail: `usuario@desapegai.com`
-- Senha: `12345678`
+- Criar contas com e-mail e senha.
+- Autenticar usuários cadastrados.
+- Solicitar a redefinição de senha por e-mail.
 
-A autenticação é exclusivamente demonstrativa e não deve ser utilizada em produção.
+O cadastro utiliza validação dos campos, tratamento de erros e indicação visual de carregamento. O login também verifica as credenciais diretamente no Firebase.
 
-### 2. Cadastro
+### Cloud Firestore
 
-- Campos de cadastro.
-- Interface seguindo o protótipo do Desapegaí.
-- Navegação para a tela de Login.
-- Botão de cadastro demonstrativo.
+Após a criação da conta no Authentication, o aplicativo utiliza o UID gerado pelo Firebase para criar o perfil do usuário na coleção `usuarios`.
 
-Os dados ainda não são armazenados.
+Cada documento utiliza o próprio UID como identificador e armazena os seguintes campos:
 
-### 3. Recuperação de senha
+| Campo | Descrição |
+|---|---|
+| `uid` | Identificador único do usuário no Firebase Authentication |
+| `nome` | Nome informado no cadastro |
+| `email` | E-mail da conta |
+| `cidade` | Cidade informada no cadastro |
 
-- Campo de e-mail.
-- Botão para solicitar recuperação.
-- Mensagem informativa sobre a funcionalidade futura.
-- Navegação de retorno ao Login.
+As regras do Firestore restringem a criação e a consulta do documento ao usuário autenticado correspondente ao UID. A listagem geral e a exclusão de documentos não são permitidas pelas regras atuais.
 
-O envio de e-mails e a redefinição real de senha ainda não foram implementados.
+### Conta para demonstração
 
-### 4. Tela Inicial (Home)
+O ambiente de desenvolvimento possui uma conta destinada a testes da aplicação:
 
-Funcionalidades disponíveis:
+- **E-mail:** `usuario@desapegai.com`
+- **Senha:** `12345678`
+
+Utilize essa conta somente para demonstrações e testes. Não utilize dados pessoais ou informações reais nessa conta.
+
+## Tela inicial
+
+A `HomeScreen` apresenta atualmente:
 
 - Cabeçalho com identificação do Desapegaí.
 - Localização demonstrativa em Itapetininga, SP.
@@ -63,9 +78,8 @@ Funcionalidades disponíveis:
 - Filtros por categoria.
 - Listagem de publicações demonstrativas.
 - Informações sobre nome, categoria, estado de conservação e localização dos itens.
-- Exibição da quantidade de resultados encontrados.
+- Quantidade de resultados encontrados.
 - Mensagem quando nenhum item corresponde aos filtros.
-- Botão de logout que retorna ao Login.
 
 **Categorias disponíveis:**
 
@@ -77,11 +91,11 @@ Funcionalidades disponíveis:
 - Calçados
 - Outros
 
-Os itens são armazenados temporariamente em uma lista definida no próprio código.
+Os itens exibidos na tela inicial são demonstrativos e ainda não são carregados do Firestore.
 
-### 5. Navegação inferior
+### Navegação inferior
 
-A Tela Inicial possui cinco opções:
+A tela inicial apresenta cinco opções:
 
 - Início
 - Minhas publicações
@@ -89,7 +103,7 @@ A Tela Inicial possui cinco opções:
 - Mensagens
 - Perfil
 
-Atualmente, apenas a opção **Início** está implementada. As demais apresentam mensagens informando que serão desenvolvidas posteriormente.
+Atualmente, a funcionalidade principal implementada é a tela **Início**. As demais opções serão desenvolvidas nas próximas etapas.
 
 ## Estrutura do projeto
 
@@ -99,48 +113,56 @@ desapegai/
 ├── lib/
 │   ├── main.dart
 │   ├── app.dart
-│   │
-│   ├── core/
-│   │   ├── theme/
-│   │   │   └── app_theme.dart
-│   │   └── widgets/
-│   │       └── auth_layout.dart
-│   │
-│   └── features/
-│       ├── auth/
-│       │   └── screens/
-│       │       ├── login_screen.dart
-│       │       ├── register_screen.dart
-│       │       └── recover_password_screen.dart
-│       │
-│       └── home/
-│           └── screens/
-│               └── home_screen.dart
-│
+│   ├── firebase_options.dart
+│   ├── controller/
+│   │   ├── cadastro_control.dart
+│   │   ├── login_control.dart
+│   │   └── recuperacao_senha_control.dart
+│   ├── model/
+│   │   └── usuario.dart
+│   ├── screens/
+│   │   ├── home_screen.dart
+│   │   ├── login_screen.dart
+│   │   ├── recover_password_screen.dart
+│   │   └── register_screen.dart
+│   ├── theme/
+│   │   └── app_theme.dart
+│   └── widgets/
+│       ├── auth_layout.dart
+│       ├── botoes.dart
+│       ├── imagens.dart
+│       ├── input.dart
+│       └── texto.dart
+├── test/
 ├── pubspec.yaml
 └── README.md
 ```
 
+O projeto mantém a separação entre telas (`screens`), controladores (`controller`), modelo de dados (`model`), tema (`theme`) e componentes reutilizáveis (`widgets`).
+
 ## Rotas
+
+As rotas estão configuradas em `lib/app.dart`.
 
 | Rota | Tela | Estado |
 |---|---|---|
-| `/` | Login | Implementada |
-| `/cadastro` | Cadastro | Interface implementada |
-| `/recuperar-senha` | Recuperação | Interface implementada |
+| `/` | Login | Integrada ao Firebase Authentication |
+| `/cadastro` | Cadastro | Integrado ao Authentication e ao Firestore |
+| `/recuperar-senha` | Recuperação de senha | Integrada ao Firebase Authentication |
 | `/inicio` | Home | Implementada com dados demonstrativos |
 
-As rotas estão configuradas no arquivo `lib/app.dart`.
+O gerenciamento automático da sessão e o logout integrado ainda estão pendentes.
 
 ## Tecnologias
 
 - **Flutter:** desenvolvimento da aplicação mobile.
 - **Dart:** linguagem de programação.
-- **Material Design 3:** componentes de interface.
-- **Android Studio:** ambiente de desenvolvimento.
+- **Firebase Core:** inicialização do Firebase no aplicativo.
+- **Firebase Authentication:** cadastro, login e recuperação de senha.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários.
+- **Material Design:** componentes de interface.
+- **Android Studio:** ambiente de desenvolvimento e execução Android.
 - **Git e GitHub:** versionamento do código.
-
-O SQLite está previsto para uma etapa posterior.
 
 ## Executando o projeto
 
@@ -150,6 +172,7 @@ O SQLite está previsto para uma etapa posterior.
 - Android Studio configurado.
 - Android SDK instalado.
 - Emulador Android ou dispositivo físico com depuração USB ativada.
+- Projeto Firebase configurado para o aplicativo.
 
 ### Instalação
 
@@ -184,52 +207,61 @@ Para selecionar um dispositivo específico:
 flutter run -d ID_DO_DISPOSITIVO
 ```
 
-Caso a pasta nativa `android/` não exista, execute:
+### Configuração do Firebase
 
-```bash
-flutter create --template=app --platforms=android --project-name=desapegai .
-```
+O aplicativo depende de um projeto Firebase configurado. Para executar a aplicação em outro ambiente, é necessário:
 
-## Testes previstos para a Etapa 2
+1. Configurar o aplicativo Android no projeto Firebase.
+2. Habilitar o provedor de autenticação por e-mail e senha.
+3. Criar o banco Cloud Firestore.
+4. Configurar as opções do Firebase para o aplicativo usando o FlutterFire CLI.
+5. Publicar regras do Firestore compatíveis com a estrutura de usuários do projeto.
 
-- [ ] Login com credenciais corretas.
-- [ ] Login com credenciais incorretas.
-- [ ] Validação de campos obrigatórios.
-- [ ] Navegação para Cadastro.
-- [ ] Navegação para Recuperação de Senha.
-- [ ] Redirecionamento para a Home.
-- [ ] Busca de itens pelo nome.
-- [ ] Filtros por categoria.
-- [ ] Exibição de resultados vazios.
-- [ ] Logout e retorno ao Login.
-- [ ] Verificação da interface em dispositivo Android.
+O arquivo `lib/firebase_options.dart` contém as opções utilizadas para inicializar o Firebase. As configurações específicas do Android também precisam corresponder ao projeto Firebase utilizado.
 
-Os testes devem ser marcados após execução e validação.
+## Testes
+
+Testes funcionais realizados durante o desenvolvimento:
+
+- [x] Cadastro de usuário no Firebase Authentication.
+- [x] Gravação do perfil do usuário no Cloud Firestore.
+- [x] Associação do documento do Firestore ao UID do Authentication.
+- [x] Login com credenciais válidas.
+- [x] Tratamento de credenciais inválidas.
+- [x] Solicitação de recuperação de senha.
+- [x] Recebimento do e-mail e redefinição de senha.
+
+Testes e funcionalidades ainda pendentes:
+
+- [ ] Restauração automática da sessão ao abrir o aplicativo.
+- [ ] Logout integrado ao Firebase Authentication.
+- [ ] Carregamento e exibição dos dados do perfil.
+- [ ] Cadastro e gerenciamento de publicações no banco.
+- [ ] Busca e filtros utilizando dados persistidos.
+- [ ] Testes de interface em diferentes dispositivos Android.
+
+A análise estática com `flutter analyze` foi executada. Ainda existem avisos e informações do analisador relacionados a widgets e imports que serão revisados em uma etapa de manutenção do código.
 
 ## Próximas etapas
 
-### Etapa 3 — Detalhes do item
+### Gerenciamento de sessão
 
-- Implementar a tela de detalhes conforme o protótipo.
-- Exibir informações completas do item.
-- Apresentar informações do doador.
-- Preparar o botão para demonstrar interesse.
+- Observar o estado de autenticação com `authStateChanges()`.
+- Direcionar o usuário para a tela adequada ao abrir o aplicativo.
+- Implementar o logout pelo Firebase Authentication.
+- Carregar o perfil correspondente ao usuário autenticado.
 
-### Etapa 4 — Publicações
+### Publicações e doações
 
-- Criar a tela de publicação.
-- Implementar o gerenciamento de publicações.
-- Adicionar edição e remoção de itens.
+- Implementar a tela de detalhes do item.
+- Exibir informações completas do item e do doador.
+- Criar e gerenciar publicações.
+- Implementar edição e remoção de publicações.
+- Persistir as publicações no Cloud Firestore.
 
-### Etapa 5 — Persistência local
+### Funcionalidades posteriores
 
-- Integrar SQLite.
-- Criar a tabela de usuários.
-- Implementar cadastro e autenticação utilizando dados persistidos.
-- Substituir os dados demonstrativos por registros locais.
-
-### Etapas posteriores
-
+- Minhas publicações.
 - Gerenciamento de interessados.
 - Acompanhamento de doações.
 - Mensagens.
@@ -238,12 +270,10 @@ Os testes devem ser marcados após execução e validação.
 - Avaliações.
 - Denúncias e bloqueio.
 - Painel administrativo.
-- Integrações externas e segurança.
+- Integrações externas e melhorias de segurança.
 
-A ordem poderá ser ajustada conforme a evolução do desenvolvimento.
+A ordem das etapas poderá ser ajustada conforme a evolução do desenvolvimento.
 
 ## Observações
 
-O Desapegaí é uma plataforma voltada exclusivamente a doações gratuitas.
-
-Não estão previstas funcionalidades de venda de produtos ou intermediação de pagamentos.
+O Desapegaí é uma plataforma voltada exclusivamente a doações gratuitas. Não estão previstas funcionalidades de venda, troca de produtos ou intermediação de pagamentos.
