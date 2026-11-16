@@ -71,14 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         senha: senha,
       );
-
-      if (!mounted) return;
-
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/inicio',
-            (route) => false,
-      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
