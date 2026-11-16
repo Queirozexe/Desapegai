@@ -8,41 +8,79 @@ O Desapegaí é uma plataforma voltada exclusivamente a **doações gratuitas**.
 
 ## Status do desenvolvimento
 
-O projeto está em desenvolvimento incremental. A autenticação já está integrada ao Firebase e os perfis dos usuários são armazenados no Cloud Firestore. A tela inicial ainda utiliza publicações demonstrativas.
+O projeto está em desenvolvimento incremental. A autenticação e o gerenciamento de sessão estão integrados ao Firebase. Os perfis dos usuários são armazenados no Cloud Firestore, enquanto as publicações exibidas na tela inicial ainda são demonstrativas.
 
-### Funcionalidades implementadas
+## Funcionalidades implementadas
 
-- Cadastro de usuários com e-mail e senha.
-- Validação dos dados obrigatórios do cadastro.
+### 1. Cadastro de usuários
+
+- Cadastro com nome, e-mail, cidade e senha.
+- Validação dos campos obrigatórios e do formato do e-mail.
 - Criação de contas pelo Firebase Authentication.
-- Persistência do perfil do usuário no Cloud Firestore.
-- Login com e-mail e senha pelo Firebase Authentication.
-- Recuperação de senha por e-mail, com link enviado pelo Firebase.
+- Criação do perfil do usuário no Cloud Firestore após o cadastro.
 - Exibição de mensagens de validação e de erros.
-- Estados de carregamento durante as operações de autenticação.
-- Tela inicial com publicações demonstrativas, busca e filtros por categoria.
+- Indicador de carregamento durante a operação.
 
-### Funcionalidades em desenvolvimento ou planejadas
+### 2. Login
 
-- Gerenciamento automático da sessão de autenticação.
-- Redirecionamento inicial conforme o estado de autenticação.
-- Logout integrado ao Firebase Authentication.
-- Carregamento do perfil do usuário a partir do Firestore.
-- Tratamento de perfis que ainda não possuam documento no banco.
-- Detalhes e gerenciamento de publicações.
-- Mensagens, notificações e demais funcionalidades sociais.
+- Autenticação com e-mail e senha pelo Firebase Authentication.
+- Validação dos campos de e-mail e senha.
+- Tratamento de erros de autenticação.
+- Indicador de carregamento durante o login.
+
+### 3. Recuperação de senha
+
+- Validação do e-mail informado.
+- Solicitação de redefinição de senha pelo Firebase Authentication.
+- Envio de link de recuperação por e-mail.
+- Tratamento de erros e apresentação de mensagens ao usuário.
+
+### 4. Gerenciamento de sessão
+
+- Monitoramento do estado de autenticação com `authStateChanges()`.
+- Verificação automática da sessão ao abrir o aplicativo.
+- Exibição da tela de Login quando não há usuário autenticado.
+- Exibição da Home quando existe uma sessão válida.
+- Restauração da sessão após fechar e abrir novamente o aplicativo.
+- Logout real pelo método `signOut()` do Firebase Authentication.
+
+O widget `AuthGate` observa o estado de autenticação e decide qual tela deve ser apresentada. Dessa forma, o login e o logout não dependem de navegação manual entre Login e Home.
+
+### 5. Tela inicial (Home)
+
+A `HomeScreen` apresenta atualmente:
+
+- Cabeçalho com identificação do Desapegaí.
+- Localização demonstrativa em Itapetininga, SP.
+- Campo de busca de itens.
+- Filtros por categoria.
+- Listagem de publicações demonstrativas.
+- Informações sobre nome, categoria, estado de conservação e localização dos itens.
+- Quantidade de resultados encontrados.
+- Mensagem quando nenhum item corresponde aos filtros.
+- Botão de logout integrado ao Firebase Authentication.
+
+As publicações exibidas na Home ainda são mantidas em uma lista definida no próprio código; elas não são carregadas do Firestore.
+
+### 6. Navegação inferior
+
+A tela inicial apresenta cinco opções:
+
+- Início
+- Minhas publicações
+- Doar
+- Mensagens
+- Perfil
+
+Atualmente, a opção **Início** está implementada. As demais opções serão desenvolvidas em etapas posteriores.
 
 ## Autenticação e armazenamento
 
 ### Firebase Authentication
 
-O Firebase Authentication é utilizado para:
+O Firebase Authentication é utilizado para criar contas, autenticar usuários, solicitar redefinição de senha e encerrar sessões.
 
-- Criar contas com e-mail e senha.
-- Autenticar usuários cadastrados.
-- Solicitar a redefinição de senha por e-mail.
-
-O cadastro utiliza validação dos campos, tratamento de erros e indicação visual de carregamento. O login também verifica as credenciais diretamente no Firebase.
+O aplicativo observa o estado de autenticação por meio de `authStateChanges()`. Ao iniciar, o `AuthGate` apresenta a tela adequada conforme exista ou não um usuário autenticado.
 
 ### Cloud Firestore
 
@@ -57,7 +95,9 @@ Cada documento utiliza o próprio UID como identificador e armazena os seguintes
 | `email` | E-mail da conta |
 | `cidade` | Cidade informada no cadastro |
 
-As regras do Firestore restringem a criação e a consulta do documento ao usuário autenticado correspondente ao UID. A listagem geral e a exclusão de documentos não são permitidas pelas regras atuais.
+As regras versionadas em `firestore.rules` restringem a criação, consulta e atualização do documento ao usuário autenticado correspondente ao UID. A listagem geral e a exclusão de documentos não são permitidas pelas regras atuais.
+
+O carregamento do perfil do usuário para exibição na interface ainda será implementado.
 
 ### Conta para demonstração
 
@@ -66,50 +106,15 @@ O ambiente de desenvolvimento possui uma conta destinada a testes da aplicação
 - **E-mail:** `usuario@desapegai.com`
 - **Senha:** `12345678`
 
-Utilize essa conta somente para demonstrações e testes. Não utilize dados pessoais ou informações reais nessa conta.
-
-## Tela inicial
-
-A `HomeScreen` apresenta atualmente:
-
-- Cabeçalho com identificação do Desapegaí.
-- Localização demonstrativa em Itapetininga, SP.
-- Campo de busca de itens.
-- Filtros por categoria.
-- Listagem de publicações demonstrativas.
-- Informações sobre nome, categoria, estado de conservação e localização dos itens.
-- Quantidade de resultados encontrados.
-- Mensagem quando nenhum item corresponde aos filtros.
-
-**Categorias disponíveis:**
-
-- Todos
-- Roupas
-- Livros
-- Móveis
-- Utensílios
-- Calçados
-- Outros
-
-Os itens exibidos na tela inicial são demonstrativos e ainda não são carregados do Firestore.
-
-### Navegação inferior
-
-A tela inicial apresenta cinco opções:
-
-- Início
-- Minhas publicações
-- Doar
-- Mensagens
-- Perfil
-
-Atualmente, a funcionalidade principal implementada é a tela **Início**. As demais opções serão desenvolvidas nas próximas etapas.
+Utilize essa conta somente para demonstrações e testes. Não utilize dados pessoais ou informações reais nessa conta. As contas dos integrantes da equipe não são documentadas neste README.
 
 ## Estrutura do projeto
 
 ```text
 desapegai/
 ├── android/
+│   └── app/
+│       └── google-services.json
 ├── lib/
 │   ├── main.dart
 │   ├── app.dart
@@ -117,10 +122,12 @@ desapegai/
 │   ├── controller/
 │   │   ├── cadastro_control.dart
 │   │   ├── login_control.dart
-│   │   └── recuperacao_senha_control.dart
+│   │   ├── recuperacao_senha_control.dart
+│   │   └── sessao_control.dart
 │   ├── model/
 │   │   └── usuario.dart
 │   ├── screens/
+│   │   ├── auth_gate.dart
 │   │   ├── home_screen.dart
 │   │   ├── login_screen.dart
 │   │   ├── recover_password_screen.dart
@@ -133,32 +140,34 @@ desapegai/
 │       ├── imagens.dart
 │       ├── input.dart
 │       └── texto.dart
-├── test/
+├── firebase.json
+├── firestore.rules
 ├── pubspec.yaml
 └── README.md
 ```
 
 O projeto mantém a separação entre telas (`screens`), controladores (`controller`), modelo de dados (`model`), tema (`theme`) e componentes reutilizáveis (`widgets`).
 
-## Rotas
+## Navegação
 
-As rotas estão configuradas em `lib/app.dart`.
+O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal em `lib/app.dart`.
 
-| Rota | Tela | Estado |
-|---|---|---|
-| `/` | Login | Integrada ao Firebase Authentication |
-| `/cadastro` | Cadastro | Integrado ao Authentication e ao Firestore |
-| `/recuperar-senha` | Recuperação de senha | Integrada ao Firebase Authentication |
-| `/inicio` | Home | Implementada com dados demonstrativos |
+| Destino | Tela ou comportamento |
+|---|---|
+| Inicialização do aplicativo | `AuthGate` verifica o estado de autenticação |
+| Sem sessão autenticada | `LoginScreen` |
+| Com sessão autenticada | `HomeScreen` |
+| `/cadastro` | `RegisterScreen` |
+| `/recuperar-senha` | `RecoverPasswordScreen` |
 
-O gerenciamento automático da sessão e o logout integrado ainda estão pendentes.
+A Home não depende de uma navegação manual para uma rota `/inicio`: ela é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado.
 
 ## Tecnologias
 
 - **Flutter:** desenvolvimento da aplicação mobile.
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
-- **Firebase Authentication:** cadastro, login e recuperação de senha.
+- **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
 - **Cloud Firestore:** armazenamento dos perfis dos usuários.
 - **Material Design:** componentes de interface.
 - **Android Studio:** ambiente de desenvolvimento e execução Android.
@@ -172,15 +181,15 @@ O gerenciamento automático da sessão e o logout integrado ainda estão pendent
 - Android Studio configurado.
 - Android SDK instalado.
 - Emulador Android ou dispositivo físico com depuração USB ativada.
-- Projeto Firebase configurado para o aplicativo.
+- Acesso ao projeto Firebase configurado para o aplicativo.
 
 ### Instalação
 
 Clone o repositório:
 
 ```bash
-git clone URL_DO_REPOSITORIO
-cd desapegai
+git clone https://github.com/Queirozexe/Desapegai.git
+cd Desapegai
 ```
 
 Instale as dependências:
@@ -195,7 +204,7 @@ Verifique os dispositivos disponíveis:
 flutter devices
 ```
 
-Execute no dispositivo Android:
+Execute o aplicativo:
 
 ```bash
 flutter run
@@ -209,15 +218,22 @@ flutter run -d ID_DO_DISPOSITIVO
 
 ### Configuração do Firebase
 
-O aplicativo depende de um projeto Firebase configurado. Para executar a aplicação em outro ambiente, é necessário:
+O aplicativo depende de um projeto Firebase configurado. Para utilizar outro projeto Firebase, é necessário:
 
-1. Configurar o aplicativo Android no projeto Firebase.
+1. Registrar o aplicativo Android no projeto Firebase.
 2. Habilitar o provedor de autenticação por e-mail e senha.
 3. Criar o banco Cloud Firestore.
-4. Configurar as opções do Firebase para o aplicativo usando o FlutterFire CLI.
-5. Publicar regras do Firestore compatíveis com a estrutura de usuários do projeto.
+4. Gerar as opções do Firebase para o Flutter usando o FlutterFire CLI.
+5. Atualizar os arquivos de configuração correspondentes ao projeto.
+6. Publicar as regras de segurança definidas em `firestore.rules`.
 
-O arquivo `lib/firebase_options.dart` contém as opções utilizadas para inicializar o Firebase. As configurações específicas do Android também precisam corresponder ao projeto Firebase utilizado.
+O arquivo `lib/firebase_options.dart` contém as opções utilizadas para inicializar o Firebase. O arquivo `android/app/google-services.json` contém a configuração do aplicativo Android. O `firebase.json` referencia as configurações do FlutterFire e o arquivo de regras do Firestore.
+
+Para publicar as regras com o Firebase CLI, após configurar o projeto correto, utilize:
+
+```bash
+firebase deploy --only firestore:rules
+```
 
 ## Testes
 
@@ -230,26 +246,29 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Tratamento de credenciais inválidas.
 - [x] Solicitação de recuperação de senha.
 - [x] Recebimento do e-mail e redefinição de senha.
+- [x] Verificação automática do estado de autenticação.
+- [x] Redirecionamento para Login ou Home conforme a sessão.
+- [x] Logout integrado ao Firebase Authentication.
+- [x] Restauração da sessão após fechar e abrir o aplicativo.
 
-Testes e funcionalidades ainda pendentes:
+Funcionalidades ainda pendentes de implementação e teste:
 
-- [ ] Restauração automática da sessão ao abrir o aplicativo.
-- [ ] Logout integrado ao Firebase Authentication.
-- [ ] Carregamento e exibição dos dados do perfil.
+- [ ] Carregamento e exibição dos dados do perfil do usuário.
+- [ ] Tratamento de perfis sem documento correspondente no Firestore.
 - [ ] Cadastro e gerenciamento de publicações no banco.
 - [ ] Busca e filtros utilizando dados persistidos.
 - [ ] Testes de interface em diferentes dispositivos Android.
 
-A análise estática com `flutter analyze` foi executada. Ainda existem avisos e informações do analisador relacionados a widgets e imports que serão revisados em uma etapa de manutenção do código.
+A análise estática com `flutter analyze` foi executada. Ainda existem avisos e informações do analisador relacionados a widgets, imports e componentes que serão revisados em uma etapa de manutenção do código. Atualmente, a análise não apresenta erros.
 
 ## Próximas etapas
 
-### Gerenciamento de sessão
+### Perfil do usuário
 
-- Observar o estado de autenticação com `authStateChanges()`.
-- Direcionar o usuário para a tela adequada ao abrir o aplicativo.
-- Implementar o logout pelo Firebase Authentication.
-- Carregar o perfil correspondente ao usuário autenticado.
+- Recuperar os dados do usuário autenticado no Cloud Firestore.
+- Exibir informações reais do perfil na interface.
+- Tratar usuários sem documento de perfil, quando necessário.
+- Preparar a tela de Perfil.
 
 ### Publicações e doações
 
@@ -266,7 +285,7 @@ A análise estática com `flutter analyze` foi executada. Ainda existem avisos e
 - Acompanhamento de doações.
 - Mensagens.
 - Notificações.
-- Perfil e histórico.
+- Histórico.
 - Avaliações.
 - Denúncias e bloqueio.
 - Painel administrativo.
