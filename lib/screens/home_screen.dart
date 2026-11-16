@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:desapegai/theme/app_theme.dart';
+import '../controller/sessao_control.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen ({super.key});
@@ -9,9 +10,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-
   String _busca = '';
   String _categoria = 'Todos';
+
+  final SessaoControl _sessaoControl = SessaoControl();
 
   final List<String> _categorias = [
     'Todos',
@@ -64,6 +66,20 @@ class _HomeScreenState extends State<HomeScreen> {
       SnackBar(content: Text(mensagem)),
     );
   }
+
+  Future<void> _sair() async {
+    try {
+      await _sessaoControl.sair();
+    } catch (e, stackTrace) {
+      debugPrint('Erro ao encerrar sessão: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      _aviso('Não foi possível sair. Tente novamente.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final itensFiltrados = _itens.where((item) {
@@ -117,13 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       IconButton(
                         icon: const Icon(Icons.logout_outlined),
                         tooltip: 'Sair',
-                        onPressed: () {
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            '/',
-                                (route) => false,
-                          );
-                        },
+                        onPressed: _sair,
                       ),
                     ],
                   ),

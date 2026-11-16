@@ -65,7 +65,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/inicio');
+      Navigator.popUntil(
+        context,
+            (route) => route.isFirst,
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
