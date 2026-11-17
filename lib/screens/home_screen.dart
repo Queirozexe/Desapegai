@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:desapegai/theme/app_theme.dart';
 import '../controller/sessao_control.dart';
 
+import '../controller/usuario_control.dart';
+import '../model/usuario.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen ({super.key});
 
@@ -14,6 +17,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String _categoria = 'Todos';
 
   final SessaoControl _sessaoControl = SessaoControl();
+  final UsuarioControl _usuarioControl = UsuarioControl();
+
+  late final Future<Usuario?> _usuarioFuture;
 
   final List<String> _categorias = [
     'Todos',
@@ -81,6 +87,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    _usuarioFuture = _usuarioControl.buscarUsuarioAtual();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final itensFiltrados = _itens.where((item) {
       final correspondeCategoria =
@@ -140,35 +153,83 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 // Localização demos
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        color: AppColors.green,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 4),
-                      const Expanded(
-                        child: Text(
-                          'Itapetininga, SP · localização exemplo',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      OutlinedButton(
-                        onPressed: () => _aviso(
-                          'Filtro de distância em desenvolvimento.',
-                        ),
-                        child: const Text('Até 10 km'),
-                      ),
-                    ],
-                  ),
-                ),
 
+                FutureBuilder<Usuario?>(
+                  future: _usuarioFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: LinearProgressIndicator(),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Não foi possível carregar os dados do perfil.',
+                        ),
+                      );
+                    }
+
+                    final usuario = snapshot.data;
+
+                    final nome = usuario?.nome.trim();
+                    final cidade = usuario?.cidade.trim();
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nome != null && nome.isNotEmpty
+                                ? 'Olá, $nome!'
+                                : 'Olá!',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                color: AppColors.green,
+                                size: 18,
+                              ),
+
+                              const SizedBox(width: 4),
+
+                              Expanded(
+                                child: Text(
+                                  cidade != null && cidade.isNotEmpty
+                                      ? 'Cidade: $cidade'
+                                      : 'Perfil não encontrado ou sem cidade.',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+
+                              OutlinedButton(
+                                onPressed: () => _aviso(
+                                  'Filtro de distância em desenvolvimento.',
+                                ),
+                                child: const Text('Até 10 km'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
                 // Campo de busca
                 Padding(
                   padding: const EdgeInsets.all(16),
