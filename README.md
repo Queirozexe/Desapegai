@@ -51,7 +51,9 @@ O widget `AuthGate` observa o estado de autenticação e decide qual tela deve s
 A `HomeScreen` apresenta atualmente:
 
 - Cabeçalho com identificação do Desapegaí.
-- Localização demonstrativa em Itapetininga, SP.
+- Saudação personalizada com o nome recuperado do perfil do usuário.
+- Cidade informada no cadastro, carregada do Cloud Firestore.
+- Indicador de carregamento e mensagens para falhas ou ausência do perfil.
 - Campo de busca de itens.
 - Filtros por categoria.
 - Listagem de publicações demonstrativas.
@@ -86,6 +88,8 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 Após a criação da conta no Authentication, o aplicativo utiliza o UID gerado pelo Firebase para criar o perfil do usuário na coleção `usuarios`.
 
+A aplicação também consulta o documento correspondente ao UID do usuário autenticado por meio do `UsuarioControl`. Os dados encontrados são convertidos para o modelo `Usuario` e utilizados na Home para apresentar o nome e a cidade. Se o documento não existir, a consulta retorna `null` e a interface apresenta uma mensagem alternativa, sem interromper a Home. Falhas na consulta são tratadas separadamente pela interface.
+
 Cada documento utiliza o próprio UID como identificador e armazena os seguintes campos:
 
 | Campo | Descrição |
@@ -96,8 +100,6 @@ Cada documento utiliza o próprio UID como identificador e armazena os seguintes
 | `cidade` | Cidade informada no cadastro |
 
 As regras versionadas em `firestore.rules` restringem a criação, consulta e atualização do documento ao usuário autenticado correspondente ao UID. A listagem geral e a exclusão de documentos não são permitidas pelas regras atuais.
-
-O carregamento do perfil do usuário para exibição na interface ainda será implementado.
 
 ### Conta para demonstração
 
@@ -123,7 +125,8 @@ desapegai/
 │   │   ├── cadastro_control.dart
 │   │   ├── login_control.dart
 │   │   ├── recuperacao_senha_control.dart
-│   │   └── sessao_control.dart
+│   │   ├── sessao_control.dart
+│   │   └── usuario_control.dart
 │   ├── model/
 │   │   └── usuario.dart
 │   ├── screens/
@@ -253,8 +256,10 @@ Testes funcionais realizados durante o desenvolvimento:
 
 Funcionalidades ainda pendentes de implementação e teste:
 
-- [ ] Carregamento e exibição dos dados do perfil do usuário.
-- [ ] Tratamento de perfis sem documento correspondente no Firestore.
+- [x] Carregamento do perfil do usuário autenticado pelo UID no Firestore.
+- [x] Exibição do nome e da cidade do usuário na Home.
+- [x] Tratamento de carregamento, falha de consulta e perfil inexistente sem interromper a Home.
+- [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
 - [ ] Cadastro e gerenciamento de publicações no banco.
 - [ ] Busca e filtros utilizando dados persistidos.
 - [ ] Testes de interface em diferentes dispositivos Android.
@@ -265,10 +270,10 @@ A análise estática com `flutter analyze` foi executada. Ainda existem avisos e
 
 ### Perfil do usuário
 
-- Recuperar os dados do usuário autenticado no Cloud Firestore.
-- Exibir informações reais do perfil na interface.
-- Tratar usuários sem documento de perfil, quando necessário.
-- Preparar a tela de Perfil.
+- Criar a tela de Perfil para visualizar nome, e-mail e cidade.
+- Implementar a edição dos dados pessoais.
+- Salvar as alterações do perfil no Cloud Firestore.
+- Definir o fluxo para usuários autenticados sem documento de perfil, quando necessário.
 
 ### Publicações e doações
 
