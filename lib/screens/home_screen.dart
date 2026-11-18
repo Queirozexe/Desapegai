@@ -5,6 +5,7 @@ import '../controller/sessao_control.dart';
 import '../controller/usuario_control.dart';
 import '../model/usuario.dart';
 import 'profile_screen.dart';
+import 'teste_imagem_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen ({super.key});
@@ -404,6 +405,17 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: 0,
         onDestinationSelected: (index) {
           if (index == 0) {
+            return;
+          }
+
+          if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TesteImagemScreen(),
+              ),
+            );
+
             return;
           }
 

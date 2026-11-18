@@ -5,6 +5,7 @@ import '../controller/usuario_control.dart';
 import '../controller/sessao_control.dart';
 import '../model/usuario.dart';
 import 'edit_profile_screen.dart';
+import 'teste_imagem_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -417,6 +418,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onDestinationSelected: (index) {
           if (index == 0) {
             Navigator.pop(context);
+            return;
+          }
+
+          if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TesteImagemScreen(),
+              ),
+            );
+
             return;
           }
 
