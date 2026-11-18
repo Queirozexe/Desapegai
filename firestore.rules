@@ -10,13 +10,15 @@ service cloud.firestore {
                       'uid',
                       'nome',
                       'email',
-                      'cidade'
+                      'cidade',
+                      'sobreMim'
                     ])
                     && request.resource.data.keys().hasAll([
                       'uid',
                       'nome',
                       'email',
-                      'cidade'
+                      'cidade',
+                      'sobreMim'
                     ]);
 
       allow get, update: if request.auth != null
