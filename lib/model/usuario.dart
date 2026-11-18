@@ -3,12 +3,14 @@ class Usuario {
   final String nome;
   final String email;
   final String cidade;
+  final String sobreMim;
 
   Usuario({
     required this.uid,
     required this.nome,
     required this.email,
     required this.cidade,
+    this.sobreMim = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -17,6 +19,7 @@ class Usuario {
       'nome': nome,
       'email': email,
       'cidade': cidade,
+      'sobreMim': sobreMim,
     };
   }
 
@@ -26,6 +29,7 @@ class Usuario {
       nome: map['nome'],
       email: map['email'],
       cidade: map['cidade'],
+      sobreMim: map['sobreMim'] ?? '',
     );
   }
 }

@@ -4,6 +4,7 @@ import '../controller/sessao_control.dart';
 
 import '../controller/usuario_control.dart';
 import '../model/usuario.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen ({super.key});
@@ -402,11 +403,22 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (index) {
-          if (index != 0) {
-            _aviso(
-              'próxima etapa.',
-            );
+          if (index == 0) {
+            return;
           }
+
+          if (index == 4) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ProfileScreen(),
+              ),
+            );
+
+            return;
+          }
+
+          _aviso('Esta funcionalidade será implementada em uma próxima etapa.');
         },
         destinations: const [
           NavigationDestination(

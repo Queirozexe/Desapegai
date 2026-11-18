@@ -8,7 +8,7 @@ O Desapegaí é uma plataforma voltada exclusivamente a **doações gratuitas**.
 
 ## Status do desenvolvimento
 
-O projeto está em desenvolvimento incremental. A autenticação e o gerenciamento de sessão estão integrados ao Firebase. Os perfis dos usuários são armazenados no Cloud Firestore, enquanto as publicações exibidas na tela inicial ainda são demonstrativas.
+O projeto está em desenvolvimento incremental. A autenticação, o gerenciamento de sessão e o gerenciamento básico dos perfis dos usuários estão integrados ao Firebase Authentication e ao Cloud Firestore. As publicações exibidas na tela inicial ainda são demonstrativas.
 
 ## Funcionalidades implementadas
 
@@ -60,11 +60,39 @@ A `HomeScreen` apresenta atualmente:
 - Informações sobre nome, categoria, estado de conservação e localização dos itens.
 - Quantidade de resultados encontrados.
 - Mensagem quando nenhum item corresponde aos filtros.
-- Botão de logout integrado ao Firebase Authentication.
+- Navegação para a tela de perfil pela barra de navegação inferior.
 
 As publicações exibidas na Home ainda são mantidas em uma lista definida no próprio código; elas não são carregadas do Firestore.
 
-### 6. Navegação inferior
+### 6. Tela de perfil
+
+A `ProfileScreen` permite visualizar os dados do usuário autenticado:
+
+- Nome e iniciais do usuário.
+- Cidade.
+- E-mail da conta.
+- Descrição pessoal.
+- Área de estatísticas de doações, ainda sem dados reais.
+- Opções de menu para histórico de doações, ajuda e segurança e painel administrativo.
+- Opção de sair da conta.
+
+A tela consulta os dados do usuário no Cloud Firestore por meio do `UsuarioControl`, utilizando o UID da conta autenticada.
+
+### 7. Edição de perfil
+
+A `EditProfileScreen` permite atualizar os dados pessoais do usuário:
+
+- Edição do nome.
+- Edição da cidade.
+- Edição da descrição pessoal.
+- Preenchimento inicial dos campos com os dados já cadastrados.
+- Validação dos campos obrigatórios.
+- Salvamento das alterações no Cloud Firestore.
+- Atualização dos dados apresentados na tela de perfil.
+
+O e-mail é exibido no perfil, mas não é editável por essa funcionalidade.
+
+### 8. Navegação inferior
 
 A tela inicial apresenta cinco opções:
 
@@ -74,7 +102,7 @@ A tela inicial apresenta cinco opções:
 - Mensagens
 - Perfil
 
-Atualmente, a opção **Início** está implementada. As demais opções serão desenvolvidas em etapas posteriores.
+Atualmente, as opções **Início** e **Perfil** estão implementadas. As demais opções serão desenvolvidas em etapas posteriores.
 
 ## Autenticação e armazenamento
 
@@ -88,7 +116,11 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 Após a criação da conta no Authentication, o aplicativo utiliza o UID gerado pelo Firebase para criar o perfil do usuário na coleção `usuarios`.
 
-A aplicação também consulta o documento correspondente ao UID do usuário autenticado por meio do `UsuarioControl`. Os dados encontrados são convertidos para o modelo `Usuario` e utilizados na Home para apresentar o nome e a cidade. Se o documento não existir, a consulta retorna `null` e a interface apresenta uma mensagem alternativa, sem interromper a Home. Falhas na consulta são tratadas separadamente pela interface.
+A aplicação também consulta o documento correspondente ao UID do usuário autenticado por meio do `UsuarioControl`. Os dados encontrados são convertidos para o modelo `Usuario` e utilizados na Home e na tela de perfil.
+
+O `UsuarioControl` também é responsável por atualizar os dados pessoais do usuário no Firestore. As alterações de nome, cidade e descrição pessoal são persistidas no documento correspondente ao UID autenticado.
+
+Se o documento não existir, a consulta retorna `null` e a interface apresenta uma mensagem alternativa, sem interromper a aplicação. Falhas na consulta são tratadas separadamente pela interface.
 
 Cada documento utiliza o próprio UID como identificador e armazena os seguintes campos:
 
@@ -98,6 +130,7 @@ Cada documento utiliza o próprio UID como identificador e armazena os seguintes
 | `nome` | Nome informado no cadastro |
 | `email` | E-mail da conta |
 | `cidade` | Cidade informada no cadastro |
+| `sobreMim` | Descrição pessoal do usuário |
 
 As regras versionadas em `firestore.rules` restringem a criação, consulta e atualização do documento ao usuário autenticado correspondente ao UID. A listagem geral e a exclusão de documentos não são permitidas pelas regras atuais.
 
@@ -134,7 +167,9 @@ desapegai/
 │   │   ├── home_screen.dart
 │   │   ├── login_screen.dart
 │   │   ├── recover_password_screen.dart
-│   │   └── register_screen.dart
+│   │   ├── register_screen.dart
+│   │   ├── profile_screen.dart
+│   │   └── edit_profile_screen.dart
 │   ├── theme/
 │   │   └── app_theme.dart
 │   └── widgets/
@@ -162,6 +197,8 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Com sessão autenticada | `HomeScreen` |
 | `/cadastro` | `RegisterScreen` |
 | `/recuperar-senha` | `RecoverPasswordScreen` |
+| Opção Perfil na navegação inferior | `ProfileScreen` |
+| Botão Editar perfil | `EditProfileScreen` |
 
 A Home não depende de uma navegação manual para uma rota `/inicio`: ela é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado.
 
@@ -253,12 +290,18 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Redirecionamento para Login ou Home conforme a sessão.
 - [x] Logout integrado ao Firebase Authentication.
 - [x] Restauração da sessão após fechar e abrir o aplicativo.
-
-Funcionalidades ainda pendentes de implementação e teste:
-
 - [x] Carregamento do perfil do usuário autenticado pelo UID no Firestore.
 - [x] Exibição do nome e da cidade do usuário na Home.
 - [x] Tratamento de carregamento, falha de consulta e perfil inexistente sem interromper a Home.
+- [x] Abertura da tela de perfil pela navegação inferior.
+- [x] Exibição dos dados pessoais na tela de perfil.
+- [x] Carregamento dos dados existentes nos campos de edição.
+- [x] Validação dos campos obrigatórios na edição do perfil.
+- [x] Atualização de nome, cidade e descrição pessoal no Firestore.
+- [x] Persistência das alterações após logout e reinicialização do aplicativo.
+
+Funcionalidades ainda pendentes de implementação e teste:
+
 - [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
 - [ ] Cadastro e gerenciamento de publicações no banco.
 - [ ] Busca e filtros utilizando dados persistidos.
@@ -267,13 +310,6 @@ Funcionalidades ainda pendentes de implementação e teste:
 A análise estática com `flutter analyze` foi executada. Ainda existem avisos e informações do analisador relacionados a widgets, imports e componentes que serão revisados em uma etapa de manutenção do código. Atualmente, a análise não apresenta erros.
 
 ## Próximas etapas
-
-### Perfil do usuário
-
-- Criar a tela de Perfil para visualizar nome, e-mail e cidade.
-- Implementar a edição dos dados pessoais.
-- Salvar as alterações do perfil no Cloud Firestore.
-- Definir o fluxo para usuários autenticados sem documento de perfil, quando necessário.
 
 ### Publicações e doações
 
@@ -290,7 +326,8 @@ A análise estática com `flutter analyze` foi executada. Ainda existem avisos e
 - Acompanhamento de doações.
 - Mensagens.
 - Notificações.
-- Histórico.
+- Histórico de doações.
+- Ajuda e segurança.
 - Avaliações.
 - Denúncias e bloqueio.
 - Painel administrativo.

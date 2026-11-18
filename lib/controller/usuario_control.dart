@@ -31,4 +31,25 @@ class UsuarioControl {
 
     return Usuario.fromMap(dados);
   }
+
+  Future<void> atualizarUsuario({
+    required String nome,
+    required String cidade,
+    required String sobreMim,
+  }) async {
+    final usuarioAtual = _auth.currentUser;
+
+    if (usuarioAtual == null) {
+      throw Exception('Nenhum usuário autenticado.');
+    }
+
+    await _firestore
+        .collection('usuarios')
+        .doc(usuarioAtual.uid)
+        .update({
+      'nome': nome.trim(),
+      'cidade': cidade.trim(),
+      'sobreMim': sobreMim.trim(),
+    });
+  }
 }
