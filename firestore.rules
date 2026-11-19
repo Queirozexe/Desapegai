@@ -1,7 +1,9 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /usuarios/{userId} {
       allow create: if request.auth != null
                     && request.auth.uid == userId
@@ -25,6 +27,71 @@ service cloud.firestore {
                          && request.auth.uid == userId;
 
       allow list, delete: if false;
+    }
+
+    match /publicacoes/{publicacaoId} {
+      allow create: if request.auth != null
+                    && request.resource.data.usuarioId == request.auth.uid
+                    && request.resource.data.keys().hasOnly([
+                      'usuarioId',
+                      'titulo',
+                      'descricao',
+                      'categoria',
+                      'estadoConservacao',
+                      'cidade',
+                      'dataCriacao',
+                      'status',
+                      'imagens'
+                    ])
+                    && request.resource.data.keys().hasAll([
+                      'usuarioId',
+                      'titulo',
+                      'descricao',
+                      'categoria',
+                      'estadoConservacao',
+                      'cidade',
+                      'dataCriacao',
+                      'status',
+                      'imagens'
+                    ])
+                    && request.resource.data.titulo is string
+                    && request.resource.data.descricao is string
+                    && request.resource.data.categoria is string
+                    && request.resource.data.estadoConservacao is string
+                    && request.resource.data.cidade is string
+                    && request.resource.data.dataCriacao is timestamp
+                    && request.resource.data.status == 'ativa'
+                    && request.resource.data.imagens is list
+                    && request.resource.data.imagens.size() <= 3;
+
+      allow read: if request.auth != null
+                  && (
+                    resource.data.status == 'ativa'
+                    || resource.data.usuarioId == request.auth.uid
+                  );
+
+      allow update: if request.auth != null
+                    && resource.data.usuarioId == request.auth.uid
+                    && request.resource.data.usuarioId == resource.data.usuarioId
+                    && request.resource.data.dataCriacao == resource.data.dataCriacao
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      'titulo',
+                      'descricao',
+                      'categoria',
+                      'estadoConservacao',
+                      'cidade',
+                      'imagens'
+                    ])
+                    && request.resource.data.titulo is string
+                    && request.resource.data.descricao is string
+                    && request.resource.data.categoria is string
+                    && request.resource.data.estadoConservacao is string
+                    && request.resource.data.cidade is string
+                    && request.resource.data.imagens is list
+                    && request.resource.data.imagens.size() <= 3;
+
+      allow delete: if request.auth != null
+                    && resource.data.usuarioId == request.auth.uid;
     }
   }
 }

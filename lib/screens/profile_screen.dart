@@ -5,6 +5,7 @@ import '../controller/usuario_control.dart';
 import '../controller/sessao_control.dart';
 import '../model/usuario.dart';
 import 'edit_profile_screen.dart';
+import 'cadastro_publicacao_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -416,7 +417,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         selectedIndex: 4,
         onDestinationSelected: (index) {
           if (index == 0) {
-            Navigator.pop(context);
+            Navigator.popUntil(context, (route) => route.isFirst);
+            return;
+          }
+
+          if (index == 2) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CadastroPublicacaoScreen(),
+              ),
+                  (route) => route.isFirst,
+            );
             return;
           }
 
