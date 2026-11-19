@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:desapegai/theme/app_theme.dart';
 import '../controller/sessao_control.dart';
-
 import '../controller/usuario_control.dart';
 import '../model/usuario.dart';
+
 import 'profile_screen.dart';
-import 'teste_imagem_screen.dart';
+import 'cadastro_publicacao_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen ({super.key});
@@ -409,24 +409,24 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           if (index == 2) {
-            Navigator.push(
+            Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder: (context) => const TesteImagemScreen(),
+                builder: (context) => const CadastroPublicacaoScreen(),
               ),
+                  (route) => route.isFirst,
             );
-
             return;
           }
 
           if (index == 4) {
-            Navigator.push(
+            Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
                 builder: (context) => const ProfileScreen(),
               ),
+                  (route) => route.isFirst,
             );
-
             return;
           }
 
