@@ -14,7 +14,7 @@ O cadastro de publicações está implementado, incluindo armazenamento dos dado
 
 A tela inicial está integrada ao Firestore, exibindo publicações reais de outros usuários em tempo real. A listagem possui busca, filtros por categoria em ordem predefinida e imagens armazenadas no Cloudinary.
 
-A tela de detalhes das publicações também está implementada, permitindo visualizar as informações completas do item, navegar pelas imagens e consultar os dados públicos do doador. A interface de demonstração de interesse está implementada visualmente, mas ainda não possui persistência no Firestore.
+A tela de detalhes das publicações também está implementada, permitindo visualizar as informações completas do item, navegar pelas imagens e consultar os dados públicos do doador. A demonstração de interesse está integrada ao Cloud Firestore, permitindo registrar e cancelar o interesse, com persistência após fechar e reabrir a publicação.
 
 ## Funcionalidades implementadas
 
@@ -149,14 +149,18 @@ Funcionalidades implementadas:
 - Exibição do título, categoria, estado de conservação, cidade e descrição do item.
 - Exibição do nome do doador.
 - Seção com orientações de segurança para o usuário.
-- Botão "Tenho interesse".
-- Após demonstrar interesse, exibição das opções "Cancelar interesse" e "Conversar".
+- Botão "Tenho interesse", com registro no Cloud Firestore.
+- Consulta automática para verificar se o usuário já demonstrou interesse.
+- Exibição das opções "Cancelar interesse" e "Conversar" após o registro.
+- Cancelamento do interesse com remoção do respectivo documento no Firestore.
 
 A tela recebe os dados da publicação selecionada, evitando a necessidade de realizar uma nova consulta ao Firestore para carregar as informações já disponíveis na Home.
 
-A interação de demonstração de interesse está implementada apenas no estado local da interface. Ainda não existe registro do interesse no Firestore ou notificação ao doador.
+Os interesses são armazenados em uma subcoleção da publicação, utilizando o UID do usuário autenticado como identificador do documento. Dessa forma, cada usuário possui no máximo um registro de interesse por publicação.
 
-O botão de denúncia está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
+O estado do interesse é recuperado do Firestore ao abrir a tela, permitindo manter a informação mesmo após sair e retornar à publicação.
+
+O botão "Conversar" ainda não possui integração com um sistema de mensagens. O botão de denúncia está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
 
 ### 10. Navegação inferior
 
@@ -217,6 +221,26 @@ Os principais campos são:
 | `imagens` | Lista de URLs das imagens armazenadas no Cloudinary |
 | `nomeDoador` | Nome público do usuário responsável pela publicação |
 
+#### Subcoleção `interesses`
+
+Cada publicação pode possuir uma subcoleção chamada `interesses`, responsável por armazenar os usuários que demonstraram interesse naquele item.
+
+A estrutura utiliza o UID do usuário autenticado como identificador do documento:
+
+```text
+publicacoes/
+  ID_DA_PUBLICACAO/
+    interesses/
+      UID_DO_USUARIO/
+```
+
+Os campos armazenados são:
+
+| Campo | Descrição |
+|---|---|
+| `usuarioId` | UID do usuário que demonstrou interesse |
+| `dataCriacao` | Data e horário do registro, definidos pelo servidor |
+
 O `PublicacaoControl` é responsável por cadastrar e consultar as publicações.
 
 A Home utiliza uma consulta em tempo real com `snapshots()`, filtrando as publicações pelo status `ativa` e excluindo aquelas cujo `usuarioId` corresponde ao UID do usuário autenticado.
@@ -232,6 +256,10 @@ O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
 Na coleção `publicacoes`, as regras controlam a criação, leitura, atualização e exclusão dos documentos, incluindo a verificação do UID do autor e o limite de até três imagens por publicação.
+
+A subcoleção `interesses` possui regras específicas de acesso. O usuário autenticado pode consultar somente seu próprio registro, demonstrar interesse em publicações ativas de outros usuários e cancelar somente o próprio interesse.
+
+As regras impedem alterações nos registros existentes e a listagem geral dos documentos de interesse nesta etapa do projeto.
 
 ## Armazenamento de imagens
 
@@ -281,6 +309,7 @@ desapegai/
 │   │   ├── recuperacao_senha_control.dart
 │   │   ├── sessao_control.dart
 │   │   ├── usuario_control.dart
+│   │   ├── interesse_control.dart
 │   │   └── publicacao_control.dart
 │   ├── model/
 │   │   ├── usuario.dart
@@ -471,6 +500,12 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Exibição do nome do doador na publicação.
 - [x] Exibição dos filtros de categoria na ordem predefinida.
 - [x] Alteração visual dos botões após demonstrar interesse.
+- [x] Consulta do interesse do usuário ao abrir a publicação.
+- [x] Registro de interesse no Cloud Firestore.
+- [x] Prevenção de registros duplicados por usuário e publicação.
+- [x] Persistência do interesse após fechar e reabrir a publicação.
+- [x] Cancelamento do interesse com exclusão do documento no Firestore.
+- [x] Validação das regras de segurança da subcoleção `interesses`.
 
 A análise estática com `flutter analyze` foi executada. Atualmente, não apresenta erros, mas ainda existem avisos e informações do analisador relacionados a imports, widgets e componentes que poderão ser revisados em uma etapa de manutenção do código.
 
@@ -487,10 +522,10 @@ A análise estática com `flutter analyze` foi executada. Atualmente, não apres
 - [ ] Painel administrativo.
 - [ ] Testes de interface em diferentes dispositivos Android.
 - [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
-- [ ] Persistência dos interesses demonstrados no Cloud Firestore.
 - [ ] Notificação ao doador quando alguém demonstrar interesse.
 - [ ] Implementação do fluxo de conversas entre usuários.
 - [ ] Implementação do registro e gerenciamento de denúncias.
+- [ ] Visualização dos usuários interessados pelo doador responsável pela publicação.
 
 ## Próximas etapas
 
@@ -498,7 +533,7 @@ A análise estática com `flutter analyze` foi executada. Atualmente, não apres
 
 - Implementar edição e remoção de publicações.
 - Desenvolver a tela de Minhas Publicações.
-- Implementar a persistência e o gerenciamento dos interesses demonstrados.
+- Desenvolver a visualização e o gerenciamento dos interessados pelo doador.
 - Desenvolver o fluxo de conversas entre doadores e interessados.
 - Implementar notificações relacionadas às publicações.
 
