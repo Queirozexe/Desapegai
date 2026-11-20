@@ -10,9 +10,9 @@ O Desapegaí é uma plataforma voltada exclusivamente a **doações gratuitas**.
 
 O projeto está em desenvolvimento incremental. A autenticação, o gerenciamento de sessão e o gerenciamento de perfis estão integrados ao Firebase Authentication e ao Cloud Firestore.
 
-O cadastro de publicações também está implementado, com armazenamento dos dados no Cloud Firestore, upload de imagens pelo Cloudinary e preenchimento da localização por GPS.
+O cadastro de publicações está implementado, incluindo armazenamento dos dados no Cloud Firestore, upload de imagens pelo Cloudinary e preenchimento da localização por GPS.
 
-A listagem de publicações na tela inicial ainda utiliza dados demonstrativos e será integrada ao Firestore em uma próxima etapa.
+A tela inicial também está integrada ao Firestore, exibindo publicações reais de outros usuários. A listagem é atualizada em tempo real, possui busca e filtros por categoria e apresenta as imagens armazenadas no Cloudinary.
 
 ## Funcionalidades implementadas
 
@@ -46,27 +46,34 @@ A listagem de publicações na tela inicial ainda utiliza dados demonstrativos e
 - Exibição da tela de Login quando não há usuário autenticado.
 - Exibição da Home quando existe uma sessão válida.
 - Restauração da sessão após fechar e abrir novamente o aplicativo.
-- Logout real pelo método `signOut()` do Firebase Authentication.
+- Logout pelo método `signOut()` do Firebase Authentication.
+- Retorno imediato à tela de Login após o encerramento da sessão.
 
-O widget `AuthGate` observa o estado de autenticação e decide qual tela deve ser apresentada. Dessa forma, o login e o logout não dependem de navegação manual entre Login e Home.
+O widget `AuthGate` observa o estado de autenticação e decide qual tela deve ser apresentada. Dessa forma, a exibição da tela de Login ou da Home depende da sessão do Firebase.
 
 ### 5. Tela inicial (Home)
 
-A `HomeScreen` apresenta atualmente:
+A `HomeScreen` apresenta:
 
 - Cabeçalho com identificação do Desapegaí.
 - Saudação personalizada com o nome recuperado do perfil do usuário.
 - Cidade informada no cadastro, carregada do Cloud Firestore.
 - Indicador de carregamento e mensagens para falhas ou ausência do perfil.
-- Campo de busca de itens.
-- Filtros por categoria.
-- Listagem de publicações demonstrativas.
-- Informações sobre nome, categoria, estado de conservação e localização dos itens.
-- Quantidade de resultados encontrados.
-- Mensagem quando nenhum item corresponde aos filtros.
-- Navegação para a tela de perfil pela barra de navegação inferior.
+- Campo de busca de publicações.
+- Filtros dinâmicos por categoria.
+- Listagem de publicações reais armazenadas no Cloud Firestore.
+- Exibição do título, categoria, estado de conservação e cidade de cada publicação.
+- Exibição da primeira imagem cadastrada na publicação.
+- Quantidade de itens encontrados.
+- Mensagens para listas vazias ou resultados que não correspondem à busca e aos filtros.
 
-As publicações exibidas na Home ainda são mantidas em uma lista definida no próprio código; elas não são carregadas do Firestore.
+A listagem utiliza o método `acompanharPublicacoes()` do `PublicacaoControl`, que consulta os documentos da coleção `publicacoes` por meio de `snapshots()`. Dessa forma, novas publicações podem aparecer automaticamente na Home sem que o usuário precise reiniciar o aplicativo.
+
+São exibidas somente publicações com status `ativa`, excluindo as publicações criadas pelo próprio usuário autenticado.
+
+A busca é realizada sobre os dados recebidos do Firestore e considera título, descrição, categoria e cidade. Os filtros de categoria são montados dinamicamente a partir das categorias encontradas nas publicações disponíveis.
+
+O filtro de distância exibido na interface ainda não possui cálculo geográfico implementado.
 
 ### 6. Tela de perfil
 
@@ -105,7 +112,7 @@ Funcionalidades implementadas:
 - Cadastro de título e descrição do item.
 - Seleção de categoria.
 - Seleção do estado de conservação.
-- Preenchimento manual da cidade e localização.
+- Preenchimento da localização.
 - Obtenção da localização atual por GPS.
 - Seleção de até três imagens pela galeria.
 - Obrigatoriedade de pelo menos uma imagem.
@@ -127,15 +134,15 @@ As imagens são armazenadas no Cloudinary, enquanto suas URLs são registradas n
 
 ### 9. Navegação inferior
 
-A tela inicial apresenta cinco opções:
+A aplicação apresenta cinco opções na navegação inferior:
 
-- Início.
-- Minhas publicações.
-- Doar.
-- Mensagens.
-- Perfil.
+- Início
+- Minhas publicações
+- Doar
+- Mensagens
+- Perfil
 
-Atualmente, as opções **Início**, **Perfil** e **Doar** possuem telas ou fluxos implementados. As demais opções serão desenvolvidas em etapas posteriores.
+Atualmente, as telas e os fluxos de **Início**, **Doar** e **Perfil** estão implementados. As áreas de Minhas Publicações e Mensagens serão desenvolvidas em etapas posteriores.
 
 ## Autenticação e armazenamento
 
@@ -147,13 +154,11 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários e as publicações cadastradas no aplicativo.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários e das publicações.
 
-#### Usuários
+#### Coleção `usuarios`
 
 Após a criação da conta no Authentication, o aplicativo utiliza o UID gerado pelo Firebase para criar o perfil do usuário na coleção `usuarios`.
-
-A aplicação consulta e atualiza os dados por meio do `UsuarioControl`.
 
 Cada documento utiliza o próprio UID como identificador e armazena os seguintes campos:
 
@@ -165,11 +170,13 @@ Cada documento utiliza o próprio UID como identificador e armazena os seguintes
 | `cidade` | Cidade informada no cadastro |
 | `sobreMim` | Descrição pessoal do usuário |
 
-#### Publicações
+O `UsuarioControl` é responsável por consultar e atualizar os dados pessoais do usuário no Firestore.
 
-As publicações são armazenadas na coleção `publicacoes` do Cloud Firestore.
+#### Coleção `publicacoes`
 
-Cada documento contém:
+Cada publicação é armazenada como um documento na coleção `publicacoes`.
+
+Os principais campos são:
 
 | Campo | Descrição |
 |---|---|
@@ -177,31 +184,53 @@ Cada documento contém:
 | `titulo` | Título do item |
 | `descricao` | Descrição do item |
 | `categoria` | Categoria selecionada |
-| `estadoConservacao` | Estado de conservação do item |
-| `cidade` | Localização informada |
+| `estadoConservacao` | Estado de conservação informado |
+| `cidade` | Cidade associada à publicação |
 | `dataCriacao` | Data e horário de criação |
-| `status` | Situação da publicação |
+| `status` | Situação da publicação, inicialmente `ativa` |
 | `imagens` | Lista de URLs das imagens armazenadas no Cloudinary |
 
-O identificador do documento é gerado automaticamente pelo Firestore.
+O `PublicacaoControl` é responsável por cadastrar e consultar as publicações.
 
-O `PublicacaoControl` é responsável pelo cadastro e pela consulta das publicações. O UID do responsável é obtido diretamente do Firebase Authentication.
+A Home utiliza uma consulta em tempo real com `snapshots()`, filtrando as publicações pelo status `ativa` e excluindo aquelas cujo `usuarioId` corresponde ao UID do usuário autenticado.
 
-As regras de segurança definidas em `firestore.rules` controlam a criação, leitura, atualização e exclusão dos documentos de publicações, restringindo as operações conforme a autenticação e a propriedade dos dados.
+A consulta combinada utiliza um índice composto configurado no Cloud Firestore. Esse índice é necessário para executar os filtros utilizados na listagem da Home.
+
+### Regras de segurança
+
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios` e `publicacoes`.
+
+As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
+
+Na coleção `publicacoes`, as regras controlam a criação, leitura, atualização e exclusão dos documentos, incluindo a verificação do UID do autor e o limite de até três imagens por publicação.
+
+## Armazenamento de imagens
 
 ### Cloudinary
 
 O Cloudinary é utilizado para armazenar e disponibilizar as imagens das publicações.
 
-O aplicativo realiza o upload das imagens selecionadas pelo usuário e recebe as respectivas URLs. Essas URLs são armazenadas no documento da publicação no Cloud Firestore.
+O aplicativo realiza o upload das imagens por meio de requisições HTTP multipart. Após o envio, o Cloudinary retorna uma URL segura, que é armazenada no documento correspondente no Firestore.
 
-O limite atual é de três imagens por publicação, com tamanho máximo de 5 MB por arquivo.
+Validações implementadas no aplicativo:
 
-### Localização
+- Limite de até 3 imagens por publicação.
+- Tamanho máximo de 5 MB por imagem.
+- Formatos permitidos: JPG, JPEG, PNG e WebP.
+- Tratamento de falhas de conexão e tempo limite.
+- Pré-visualização das imagens antes do cadastro.
 
-A localização pode ser preenchida manualmente ou obtida por meio do GPS do dispositivo.
+O projeto utiliza um upload preset sem assinatura para o protótipo. Em uma versão de produção, recomenda-se implementar upload assinado por meio de um backend seguro e restringir as permissões de envio.
 
-O `LocalizacaoService` utiliza os recursos de geolocalização e geocodificação para obter as coordenadas do dispositivo e convertê-las em informações de endereço.
+Não armazene chaves secretas do Cloudinary no aplicativo Flutter ou no repositório.
+
+## Serviço de localização
+
+O serviço `LocalizacaoService` utiliza o Geolocator para obter as coordenadas geográficas do dispositivo e o Geocoding para converter essas coordenadas em informações de localização.
+
+A localização obtida é utilizada no preenchimento do campo correspondente durante o cadastro de publicações.
+
+O aplicativo solicita as permissões de localização necessárias no Android.
 
 ## Estrutura do projeto
 
@@ -271,7 +300,7 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Botão Editar perfil | `EditProfileScreen` |
 | Opção Doar na navegação inferior | `CadastroPublicacaoScreen` |
 
-A Home não depende de uma navegação manual para uma rota `/inicio`: ela é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado.
+A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado.
 
 ## Tecnologias
 
@@ -298,7 +327,7 @@ A Home não depende de uma navegação manual para uma rota `/inicio`: ela é ap
 - Android SDK instalado.
 - Emulador Android ou dispositivo físico com depuração USB ativada.
 - Acesso ao projeto Firebase configurado para o aplicativo.
-- Configuração de uma conta e de um upload preset no Cloudinary.
+- Configuração de um projeto Cloudinary compatível com o serviço de upload utilizado.
 
 ### Instalação
 
@@ -343,6 +372,7 @@ O aplicativo depende de um projeto Firebase configurado. Para utilizar outro pro
 4. Gerar as opções do Firebase para o Flutter usando o FlutterFire CLI.
 5. Atualizar os arquivos de configuração correspondentes ao projeto.
 6. Publicar as regras de segurança definidas em `firestore.rules`.
+7. Criar os índices necessários para as consultas utilizadas pela aplicação.
 
 O arquivo `lib/firebase_options.dart` contém as opções utilizadas para inicializar o Firebase. O arquivo `android/app/google-services.json` contém a configuração do aplicativo Android. O `firebase.json` referencia as configurações do FlutterFire e o arquivo de regras do Firestore.
 
@@ -352,13 +382,15 @@ Para publicar as regras com o Firebase CLI, após configurar o projeto correto, 
 firebase deploy --only firestore:rules
 ```
 
+Os índices do Firestore podem ser criados pelo Firebase Console ou configurados no arquivo de índices do projeto, conforme a necessidade.
+
 ### Configuração do Cloudinary
 
-Para habilitar o envio de imagens, é necessário configurar uma conta no Cloudinary e criar um upload preset compatível com o aplicativo.
+O serviço `CloudinaryService`, localizado em `lib/services/cloudinary_service.dart`, contém as configurações utilizadas para realizar o upload das imagens.
 
-As configurações de Cloud Name e upload preset utilizadas pelo serviço devem corresponder às configurações da conta Cloudinary.
+Para utilizar outro ambiente Cloudinary, configure o nome da nuvem e o upload preset correspondente no serviço.
 
-Não compartilhe chaves secretas ou credenciais privadas no repositório.
+O projeto utiliza um upload preset sem assinatura no protótipo. Não inclua o API Secret no aplicativo Flutter, em arquivos versionados ou em commits.
 
 ## Testes
 
@@ -374,6 +406,7 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Verificação automática do estado de autenticação.
 - [x] Redirecionamento para Login ou Home conforme a sessão.
 - [x] Logout integrado ao Firebase Authentication.
+- [x] Retorno imediato à tela de Login ao sair pela tela de perfil.
 - [x] Restauração da sessão após fechar e abrir o aplicativo.
 - [x] Carregamento do perfil do usuário autenticado pelo UID no Firestore.
 - [x] Exibição do nome e da cidade do usuário na Home.
@@ -386,38 +419,51 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Persistência das alterações após logout e reinicialização do aplicativo.
 - [x] Cadastro de publicações no Cloud Firestore.
 - [x] Associação das publicações ao UID do usuário autenticado.
-- [x] Validação dos campos obrigatórios.
+- [x] Validação dos campos obrigatórios no cadastro de publicações.
 - [x] Obrigatoriedade de pelo menos uma imagem.
 - [x] Seleção e pré-visualização de até três imagens.
 - [x] Upload de imagens para o Cloudinary.
 - [x] Armazenamento das URLs das imagens no Firestore.
 - [x] Obtenção da localização por GPS.
 - [x] Validação das regras de segurança para publicações.
+- [x] Listagem de publicações reais na Home.
+- [x] Exclusão das próprias publicações da listagem da Home.
+- [x] Atualização automática da listagem após novas publicações.
+- [x] Exibição das imagens das publicações nos cards.
+- [x] Busca por título, descrição, categoria e cidade.
+- [x] Filtros dinâmicos por categoria.
+- [x] Ordenação das publicações mais recentes primeiro.
+- [x] Tratamento de carregamento, erro e lista vazia na listagem.
 
-Funcionalidades ainda pendentes de implementação e teste:
+A análise estática com `flutter analyze` foi executada. Atualmente, não apresenta erros, mas ainda existem avisos e informações do analisador relacionados a imports, widgets e componentes que poderão ser revisados em uma etapa de manutenção do código.
 
-- [ ] Listagem de publicações reais na tela inicial.
-- [ ] Aplicação de busca e filtros sobre publicações do Firestore.
-- [ ] Ocultar da Home as publicações criadas pelo próprio usuário.
-- [ ] Tela de detalhes da publicação.
-- [ ] Edição e remoção de publicações.
-- [ ] Tela de Minhas Publicações.
-- [ ] Testes de interface em diferentes dispositivos Android.
+## Funcionalidades pendentes
+
 - [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
-
-A análise estática com `flutter analyze` foi executada. Ainda existem avisos e informações do analisador relacionados a widgets, imports e componentes que serão revisados em uma etapa de manutenção do código. Atualmente, a análise não apresenta erros.
+- [ ] Tela de detalhes da publicação.
+- [ ] Exibição das informações completas do item e do doador.
+- [ ] Edição de publicações.
+- [ ] Remoção de publicações e tratamento das imagens correspondentes no Cloudinary.
+- [ ] Tela de Minhas Publicações.
+- [ ] Implementação de filtro de distância com cálculo geográfico real.
+- [ ] Mensagens entre usuários.
+- [ ] Notificações.
+- [ ] Histórico de doações.
+- [ ] Ajuda e segurança.
+- [ ] Avaliações.
+- [ ] Denúncias e bloqueio.
+- [ ] Painel administrativo.
+- [ ] Testes de interface em diferentes dispositivos Android.
+- [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
 
 ## Próximas etapas
 
 ### Publicações e doações
 
-- Implementar a listagem de publicações reais na Home.
-- Implementar busca e filtros utilizando dados do Firestore.
-- Impedir que o usuário visualize suas próprias publicações na listagem principal.
-- Implementar a tela de detalhes do item.
+- Implementar a tela de detalhes da publicação.
 - Exibir informações completas do item e do doador.
 - Implementar edição e remoção de publicações.
-- Desenvolver a tela Minhas Publicações.
+- Desenvolver a tela de Minhas Publicações.
 
 ### Funcionalidades posteriores
 
@@ -430,7 +476,7 @@ A análise estática com `flutter analyze` foi executada. Ainda existem avisos e
 - Avaliações.
 - Denúncias e bloqueio.
 - Painel administrativo.
-- Integrações externas e melhorias de segurança.
+- Melhorias de segurança e manutenção da infraestrutura.
 
 A ordem das etapas poderá ser ajustada conforme a evolução do desenvolvimento.
 
