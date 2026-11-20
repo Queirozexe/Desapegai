@@ -71,6 +71,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _sair() async {
     try {
       await _sessaoControl.sair();
+
+      if (!mounted) return;
+
+      Navigator.of(context).popUntil(
+            (route) => route.isFirst,
+      );
     } catch (e, stackTrace) {
       debugPrint('Erro ao encerrar sessão: $e');
       debugPrintStack(stackTrace: stackTrace);
@@ -80,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _aviso('Não foi possível sair. Tente novamente.');
     }
   }
+
 
   Widget _buildEstatistica({required String valor, required String descricao}) {
     return Container(
