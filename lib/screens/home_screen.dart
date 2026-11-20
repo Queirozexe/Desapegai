@@ -1,14 +1,18 @@
+
 import 'package:flutter/material.dart';
 import 'package:desapegai/theme/app_theme.dart';
+
 import '../controller/sessao_control.dart';
 import '../controller/usuario_control.dart';
+import '../controller/publicacao_control.dart';
 import '../model/usuario.dart';
+import '../model/publicacao.dart';
 
 import 'profile_screen.dart';
 import 'cadastro_publicacao_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen ({super.key});
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -20,55 +24,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final SessaoControl _sessaoControl = SessaoControl();
   final UsuarioControl _usuarioControl = UsuarioControl();
+  final PublicacaoControl _publicacaoControl = PublicacaoControl();
 
   late final Future<Usuario?> _usuarioFuture;
+  late final Stream<List<Publicacao>> _publicacoesStream;
 
-  final List<String> _categorias = [
-    'Todos',
-    'Roupas',
-    'Moveis',
-    'Utensílios',
-    'Calçados',
-    'Outros',
-  ];
+  @override
+  void initState() {
+    super.initState();
 
-  final List<Map<String, String>> _itens = [
-    {
-      'titulo': 'Jaqueta jeans infantil',
-      'categoria': 'Roupas',
-      'estado': 'Ótimo estado',
-      'local': 'Centro',
-      'distancia': '800 m',
-    },
-    {
-      'titulo': 'Lote com 6 livros de ficção',
-      'categoria': 'Livros',
-      'estado': 'Ótimo estado',
-      'local': 'Vila Barth',
-      'distancia': '1,2 km',
-    },
-    {
-      'titulo': 'Cadeira de escritório',
-      'categoria': 'Móveis',
-      'estado': 'Bom estado',
-      'local': 'Vila Rio Branco',
-      'distancia': '2,8 km',
-    },
-    {
-      'titulo': 'Liquidificador 2 velocidades',
-      'categoria': 'Utensílios',
-      'estado': 'Funcionando',
-      'local': 'Jardim Marabá',
-      'distancia': '3,5 km',
-    },
-    {
-      'titulo': 'Berço de madeira',
-      'categoria': 'Móveis',
-      'estado': 'Bom estado',
-      'local': 'Centro',
-      'distancia': '4,1 km',
-    },
-  ];
+    _usuarioFuture = _usuarioControl.buscarUsuarioAtual();
+    _publicacoesStream = _publicacaoControl.acompanharPublicacoes();
+  }
+
   void _aviso(String mensagem) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensagem)),
@@ -88,31 +56,247 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-
-    _usuarioFuture = _usuarioControl.buscarUsuarioAtual();
+  String _normalizarTexto(String texto) {
+    return texto
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll('ç', 'c');
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final itensFiltrados = _itens.where((item) {
+  Widget _imagemPadrao() {
+    return Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        color: const Color(0xFFD8E8DF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(
+        Icons.inventory_2_outlined,
+        size: 32,
+        color: AppColors.green,
+      ),
+    );
+  }
+
+  Widget _imagemPublicacao(Publicacao publicacao) {
+    if (publicacao.imagens.isEmpty) {
+      return _imagemPadrao();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        publicacao.imagens.first,
+        width: 76,
+        height: 76,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _imagemPadrao();
+        },
+      ),
+    );
+  }
+
+  Widget _construirCard(Publicacao publicacao) {
+    return Card(
+      color: Colors.white,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          _aviso('Detalhes da publicação serão implementados depois.');
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              _imagemPublicacao(publicacao),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      publicacao.titulo,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${publicacao.categoria} · ${publicacao.estadoConservacao}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            publicacao.cidade,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _construirListaPublicacoes(
+      AsyncSnapshot<List<Publicacao>> snapshot,
+      ) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (snapshot.hasError) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Não foi possível carregar as publicações. '
+                'Verifique sua conexão e tente novamente.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final publicacoes = snapshot.data ?? [];
+
+    final categoriasDisponiveis = publicacoes
+        .map((publicacao) => publicacao.categoria.trim())
+        .where((categoria) => categoria.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    final categorias = [
+      'Todos',
+      ...categoriasDisponiveis,
+    ];
+
+    final termo = _normalizarTexto(_busca);
+
+    final publicacoesFiltradas = publicacoes.where((publicacao) {
       final correspondeCategoria =
           _categoria == 'Todos' ||
-              item['categoria'] == _categoria;
-
-      final termo = _busca.trim().toLowerCase();
+              _normalizarTexto(publicacao.categoria) ==
+                  _normalizarTexto(_categoria);
 
       final correspondeBusca =
           termo.isEmpty ||
-              item['titulo']!.toLowerCase().contains(termo) ||
-              item['categoria']!.toLowerCase().contains(termo) ||
-              item['local']!.toLowerCase().contains(termo);
+              _normalizarTexto(publicacao.titulo).contains(termo) ||
+              _normalizarTexto(publicacao.descricao).contains(termo) ||
+              _normalizarTexto(publicacao.categoria).contains(termo) ||
+              _normalizarTexto(publicacao.cidade).contains(termo);
 
       return correspondeCategoria && correspondeBusca;
     }).toList();
 
+    return Column(
+      children: [
+        SizedBox(
+          height: 52,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: categorias.length,
+            separatorBuilder: (context, index) =>
+            const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final categoria = categorias[index];
+              final selecionada = _categoria == categoria;
+
+              return ChoiceChip(
+                label: Text(categoria),
+                selected: selecionada,
+                selectedColor: AppColors.green,
+                labelStyle: TextStyle(
+                  color: selecionada
+                      ? Colors.white
+                      : Colors.black87,
+                ),
+                onSelected: (valor) {
+                  if (valor) {
+                    setState(() {
+                      _categoria = categoria;
+                    });
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            '${publicacoesFiltradas.length} itens disponíveis',
+            style: const TextStyle(
+              color: AppColors.muted,
+            ),
+          ),
+        ),
+        Expanded(
+          child: publicacoesFiltradas.isEmpty
+              ? Center(
+            child: Text(
+              publicacoes.isEmpty
+                  ? 'Ainda não há publicações disponíveis.'
+                  : 'Nenhum item corresponde à sua busca ou categoria.',
+              textAlign: TextAlign.center,
+            ),
+          )
+              : ListView.separated(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+            ),
+            itemCount: publicacoesFiltradas.length,
+            separatorBuilder: (context, index) =>
+            const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              return _construirCard(
+                publicacoesFiltradas[index],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -121,10 +305,12 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Cabeçalho
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
-                    16, 12, 16, 8,
+                    16,
+                    12,
+                    16,
+                    8,
                   ),
                   child: Row(
                     children: [
@@ -153,13 +339,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
-                // Localização demos
-
                 FutureBuilder<Usuario?>(
                   future: _usuarioFuture,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+                    if (snapshot.connectionState ==
+                        ConnectionState.waiting) {
                       return const Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: 16,
@@ -184,7 +368,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     final cidade = usuario?.cidade.trim();
 
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -197,9 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-
                           const SizedBox(height: 8),
-
                           Row(
                             children: [
                               const Icon(
@@ -207,9 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: AppColors.green,
                                 size: 18,
                               ),
-
                               const SizedBox(width: 4),
-
                               Expanded(
                                 child: Text(
                                   cidade != null && cidade.isNotEmpty
@@ -218,7 +400,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               ),
-
                               OutlinedButton(
                                 onPressed: () => _aviso(
                                   'Filtro de distância em desenvolvimento.',
@@ -232,7 +413,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
-                // Campo de busca
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: TextField(
@@ -242,155 +422,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       });
                     },
                     decoration: const InputDecoration(
-                      hintText: 'Buscar jaqueta, livros, cadeira...',
+                      hintText: 'Buscar publicação, categoria, cidade...',
                       prefixIcon: Icon(Icons.search),
                     ),
                   ),
                 ),
-
-                // Categorias
-                SizedBox(
-                  height: 52,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                    ),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _categorias.length,
-                    separatorBuilder: (context, index) =>
-                    const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final categoria = _categorias[index];
-                      final selecionada =
-                          _categoria == categoria;
-
-                      return ChoiceChip(
-                        label: Text(categoria),
-                        selected: selecionada,
-                        selectedColor: AppColors.green,
-                        labelStyle: TextStyle(
-                          color: selecionada
-                              ? Colors.white
-                              : Colors.black87,
-                        ),
-                        onSelected: (valor) {
-                          if (valor) {
-                            setState(() {
-                              _categoria = categoria;
-                            });
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
-
-                // Quantidade de resultados
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    '${itensFiltrados.length} itens disponíveis',
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ),
-
-                // Lista de publicações
                 Expanded(
-                  child: itensFiltrados.isEmpty
-                      ? const Center(
-                    child: Text(
-                      'Nenhum item encontrado.',
-                    ),
-                  )
-                      : ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                    ),
-                    itemCount: itensFiltrados.length,
-                    separatorBuilder: (context, index) =>
-                    const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = itensFiltrados[index];
-
-                      return Card(
-                        color: Colors.white,
-                        elevation: 0,
-                        margin: EdgeInsets.zero,
-                        child: InkWell(
-                          borderRadius:
-                          BorderRadius.circular(12),
-                          onTap: () => _aviso(
-                            'Detalhes do item serão implementados depois.',
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 76,
-                                  height: 76,
-                                  decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFFD8E8DF,
-                                    ),
-                                    borderRadius:
-                                    BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 32,
-                                    color: AppColors.green,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item['titulo']!,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '${item['categoria']} · ${item['estado']}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.muted,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.location_on_outlined,
-                                            size: 14,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              '${item['local']} · ${item['distancia']}',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
+                  child: StreamBuilder<List<Publicacao>>(
+                    stream: _publicacoesStream,
+                    builder: (context, snapshot) {
+                      return _construirListaPublicacoes(snapshot);
                     },
                   ),
                 ),
@@ -399,8 +440,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-
-      // Navegação inferior
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (index) {
@@ -412,7 +451,8 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder: (context) => const CadastroPublicacaoScreen(),
+                builder: (context) =>
+                const CadastroPublicacaoScreen(),
               ),
                   (route) => route.isFirst,
             );
@@ -430,7 +470,9 @@ class _HomeScreenState extends State<HomeScreen> {
             return;
           }
 
-          _aviso('Esta funcionalidade será implementada em uma próxima etapa.');
+          _aviso(
+            'Esta funcionalidade será implementada em uma próxima etapa.',
+          );
         },
         destinations: const [
           NavigationDestination(
