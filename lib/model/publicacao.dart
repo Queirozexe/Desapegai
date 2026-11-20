@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Publicacao {
   final String? id;
   final String usuarioId;
+  final String nomeDoador;
   final String titulo;
   final String descricao;
   final String categoria;
@@ -15,6 +16,7 @@ class Publicacao {
   Publicacao({
     this.id,
     required this.usuarioId,
+    this.nomeDoador = 'Doador',
     required this.titulo,
     required this.descricao,
     required this.categoria,
@@ -28,6 +30,7 @@ class Publicacao {
   Map<String, dynamic> toMap() {
     return {
       'usuarioId': usuarioId,
+      'nomeDoador': nomeDoador,
       'titulo': titulo,
       'descricao': descricao,
       'categoria': categoria,
@@ -46,6 +49,7 @@ class Publicacao {
     return Publicacao(
       id: id,
       usuarioId: map['usuarioId'] as String,
+      nomeDoador: map['nomeDoador'] as String? ?? 'Doador',
       titulo: map['titulo'] as String,
       descricao: map['descricao'] as String,
       categoria: map['categoria'] as String,
