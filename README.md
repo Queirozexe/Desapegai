@@ -12,7 +12,9 @@ O projeto está em desenvolvimento incremental. A autenticação, o gerenciament
 
 O cadastro de publicações está implementado, incluindo armazenamento dos dados no Cloud Firestore, upload de imagens pelo Cloudinary e preenchimento da localização por GPS.
 
-A tela inicial também está integrada ao Firestore, exibindo publicações reais de outros usuários. A listagem é atualizada em tempo real, possui busca e filtros por categoria e apresenta as imagens armazenadas no Cloudinary.
+A tela inicial está integrada ao Firestore, exibindo publicações reais de outros usuários em tempo real. A listagem possui busca, filtros por categoria em ordem predefinida e imagens armazenadas no Cloudinary.
+
+A tela de detalhes das publicações também está implementada, permitindo visualizar as informações completas do item, navegar pelas imagens e consultar os dados públicos do doador. A interface de demonstração de interesse está implementada visualmente, mas ainda não possui persistência no Firestore.
 
 ## Funcionalidades implementadas
 
@@ -60,10 +62,12 @@ A `HomeScreen` apresenta:
 - Cidade informada no cadastro, carregada do Cloud Firestore.
 - Indicador de carregamento e mensagens para falhas ou ausência do perfil.
 - Campo de busca de publicações.
-- Filtros dinâmicos por categoria.
+- Filtros por categoria na ordem: Todos, Roupas, Livros, Móveis, Calçados, Utensílios, Eletrônicos e Outros.
+- Exibição dos filtros somente quando existe pelo menos uma publicação disponível na respectiva categoria.
 - Listagem de publicações reais armazenadas no Cloud Firestore.
 - Exibição do título, categoria, estado de conservação e cidade de cada publicação.
 - Exibição da primeira imagem cadastrada na publicação.
+- Abertura da tela de detalhes ao selecionar uma publicação.
 - Quantidade de itens encontrados.
 - Mensagens para listas vazias ou resultados que não correspondem à busca e aos filtros.
 
@@ -71,7 +75,7 @@ A listagem utiliza o método `acompanharPublicacoes()` do `PublicacaoControl`, q
 
 São exibidas somente publicações com status `ativa`, excluindo as publicações criadas pelo próprio usuário autenticado.
 
-A busca é realizada sobre os dados recebidos do Firestore e considera título, descrição, categoria e cidade. Os filtros de categoria são montados dinamicamente a partir das categorias encontradas nas publicações disponíveis.
+A busca é realizada sobre os dados recebidos do Firestore e considera título, descrição, categoria e cidade. Os filtros de categoria seguem uma ordem predefinida e são exibidos dinamicamente conforme as categorias presentes nas publicações disponíveis.
 
 O filtro de distância exibido na interface ainda não possui cálculo geográfico implementado.
 
@@ -132,7 +136,29 @@ Os estados de conservação disponíveis são:
 
 As imagens são armazenadas no Cloudinary, enquanto suas URLs são registradas no documento da publicação no Firestore.
 
-### 9. Navegação inferior
+### 9. Tela de detalhes da publicação
+
+A `DetalhesPublicacaoScreen` apresenta as informações completas de uma publicação selecionada na tela inicial.
+
+Funcionalidades implementadas:
+
+- Navegação da Home para a tela de detalhes ao selecionar um card.
+- Galeria de imagens com navegação horizontal entre as fotos.
+- Indicador da posição atual na galeria e da quantidade de imagens.
+- Barra superior fixa com opção de voltar e botão de denúncia.
+- Exibição do título, categoria, estado de conservação, cidade e descrição do item.
+- Exibição do nome do doador.
+- Seção com orientações de segurança para o usuário.
+- Botão "Tenho interesse".
+- Após demonstrar interesse, exibição das opções "Cancelar interesse" e "Conversar".
+
+A tela recebe os dados da publicação selecionada, evitando a necessidade de realizar uma nova consulta ao Firestore para carregar as informações já disponíveis na Home.
+
+A interação de demonstração de interesse está implementada apenas no estado local da interface. Ainda não existe registro do interesse no Firestore ou notificação ao doador.
+
+O botão de denúncia está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
+
+### 10. Navegação inferior
 
 A aplicação apresenta cinco opções na navegação inferior:
 
@@ -189,12 +215,15 @@ Os principais campos são:
 | `dataCriacao` | Data e horário de criação |
 | `status` | Situação da publicação, inicialmente `ativa` |
 | `imagens` | Lista de URLs das imagens armazenadas no Cloudinary |
+| `nomeDoador` | Nome público do usuário responsável pela publicação |
 
 O `PublicacaoControl` é responsável por cadastrar e consultar as publicações.
 
 A Home utiliza uma consulta em tempo real com `snapshots()`, filtrando as publicações pelo status `ativa` e excluindo aquelas cujo `usuarioId` corresponde ao UID do usuário autenticado.
 
 A consulta combinada utiliza um índice composto configurado no Cloud Firestore. Esse índice é necessário para executar os filtros utilizados na listagem da Home.
+
+O campo `nomeDoador` armazena o nome público do usuário responsável pela publicação. Esse valor é obtido do perfil do usuário autenticado durante o cadastro e registrado diretamente no documento da publicação.
 
 ### Regras de segurança
 
@@ -264,6 +293,7 @@ desapegai/
 │   │   ├── register_screen.dart
 │   │   ├── profile_screen.dart
 │   │   ├── edit_profile_screen.dart
+│   │   ├── detalhes_publicacao_screen.dart
 │   │   └── cadastro_publicacao_screen.dart
 │   ├── services/
 │   │   ├── cloudinary_service.dart
@@ -299,6 +329,7 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Opção Perfil na navegação inferior | `ProfileScreen` |
 | Botão Editar perfil | `EditProfileScreen` |
 | Opção Doar na navegação inferior | `CadastroPublicacaoScreen` |
+| Seleção de uma publicação na Home | `DetalhesPublicacaoScreen` |
 
 A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado.
 
@@ -434,49 +465,51 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Filtros dinâmicos por categoria.
 - [x] Ordenação das publicações mais recentes primeiro.
 - [x] Tratamento de carregamento, erro e lista vazia na listagem.
+- [x] Abertura da tela de detalhes a partir de uma publicação na Home.
+- [x] Exibição das informações da publicação na tela de detalhes.
+- [x] Navegação horizontal entre as imagens da galeria.
+- [x] Exibição do nome do doador na publicação.
+- [x] Exibição dos filtros de categoria na ordem predefinida.
+- [x] Alteração visual dos botões após demonstrar interesse.
 
 A análise estática com `flutter analyze` foi executada. Atualmente, não apresenta erros, mas ainda existem avisos e informações do analisador relacionados a imports, widgets e componentes que poderão ser revisados em uma etapa de manutenção do código.
 
 ## Funcionalidades pendentes
 
 - [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
-- [ ] Tela de detalhes da publicação.
-- [ ] Exibição das informações completas do item e do doador.
 - [ ] Edição de publicações.
 - [ ] Remoção de publicações e tratamento das imagens correspondentes no Cloudinary.
 - [ ] Tela de Minhas Publicações.
 - [ ] Implementação de filtro de distância com cálculo geográfico real.
-- [ ] Mensagens entre usuários.
-- [ ] Notificações.
 - [ ] Histórico de doações.
 - [ ] Ajuda e segurança.
 - [ ] Avaliações.
-- [ ] Denúncias e bloqueio.
 - [ ] Painel administrativo.
 - [ ] Testes de interface em diferentes dispositivos Android.
 - [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
+- [ ] Persistência dos interesses demonstrados no Cloud Firestore.
+- [ ] Notificação ao doador quando alguém demonstrar interesse.
+- [ ] Implementação do fluxo de conversas entre usuários.
+- [ ] Implementação do registro e gerenciamento de denúncias.
 
 ## Próximas etapas
 
 ### Publicações e doações
 
-- Implementar a tela de detalhes da publicação.
-- Exibir informações completas do item e do doador.
 - Implementar edição e remoção de publicações.
 - Desenvolver a tela de Minhas Publicações.
+- Implementar a persistência e o gerenciamento dos interesses demonstrados.
+- Desenvolver o fluxo de conversas entre doadores e interessados.
+- Implementar notificações relacionadas às publicações.
 
 ### Funcionalidades posteriores
 
-- Gerenciamento de interessados.
-- Acompanhamento de doações.
-- Mensagens.
-- Notificações.
-- Histórico de doações.
-- Ajuda e segurança.
-- Avaliações.
-- Denúncias e bloqueio.
-- Painel administrativo.
-- Melhorias de segurança e manutenção da infraestrutura.
+- Implementar filtro de distância com cálculo geográfico.
+- Desenvolver histórico e acompanhamento de doações.
+- Implementar ajuda e segurança.
+- Desenvolver avaliações, denúncias e bloqueio.
+- Implementar o painel administrativo.
+- Aprimorar a segurança da infraestrutura e do upload de imagens.
 
 A ordem das etapas poderá ser ajustada conforme a evolução do desenvolvimento.
 
