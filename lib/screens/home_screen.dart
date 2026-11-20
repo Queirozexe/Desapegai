@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:desapegai/theme/app_theme.dart';
 
@@ -10,6 +9,7 @@ import '../model/publicacao.dart';
 
 import 'profile_screen.dart';
 import 'cadastro_publicacao_screen.dart';
+import 'detalhes_publicacao_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -111,7 +111,14 @@ class _HomeScreenState extends State<HomeScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          _aviso('Detalhes da publicação serão implementados depois.');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DetalhesPublicacaoScreen(
+                publicacao: publicacao,
+              ),
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -194,17 +201,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final publicacoes = snapshot.data ?? [];
 
-    final categoriasDisponiveis = publicacoes
-        .map((publicacao) => publicacao.categoria.trim())
-        .where((categoria) => categoria.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-
-    final categorias = [
-      'Todos',
-      ...categoriasDisponiveis,
+    const ordemCategorias = [
+      'Roupas',
+      'Livros',
+      'Móveis',
+      'Calçados',
+      'Utensílios',
+      'Eletrônicos',
+      'Outros',
     ];
+
+    final categoriasDisponiveis = ordemCategorias
+        .where(
+          (categoria) => publicacoes.any(
+            (publicacao) => publicacao.categoria == categoria,
+      ),
+    )
+        .toList();
+
+    final categorias = ['Todos', ...categoriasDisponiveis];
 
     final termo = _normalizarTexto(_busca);
 
@@ -239,20 +254,25 @@ class _HomeScreenState extends State<HomeScreen> {
               final selecionada = _categoria == categoria;
 
               return ChoiceChip(
-                label: Text(categoria),
-                selected: selecionada,
-                selectedColor: AppColors.green,
-                labelStyle: TextStyle(
-                  color: selecionada
-                      ? Colors.white
-                      : Colors.black87,
+                label: Text(
+                  categoria,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: selecionada ? Colors.white : Colors.black,
+                  ),
                 ),
-                onSelected: (valor) {
-                  if (valor) {
-                    setState(() {
-                      _categoria = categoria;
-                    });
-                  }
+                selected: selecionada,
+                showCheckmark: false,
+                backgroundColor: Colors.white,
+                selectedColor: AppColors.green,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                onSelected: (selecionado) {
+                  setState(() {
+                    _categoria = selecionado ? categoria : 'Todos';
+                  });
                 },
               );
             },

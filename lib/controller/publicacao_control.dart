@@ -15,9 +15,24 @@ class PublicacaoControl {
       throw Exception('Usuário não autenticado.');
     }
 
+    final documentoUsuario = await _firestore
+        .collection('usuarios')
+        .doc(usuario.uid)
+        .get();
+
+    final dadosUsuario = documentoUsuario.data();
+    final nomeDoador = dadosUsuario?['nome'];
+
+    if (nomeDoador is! String || nomeDoador.trim().isEmpty) {
+      throw Exception(
+        'Não foi possível localizar o nome do doador no perfil.',
+      );
+    }
+
     final dados = publicacao.toMap();
 
     dados['usuarioId'] = usuario.uid;
+    dados['nomeDoador'] = nomeDoador.trim();
 
     final documento = await _firestore
         .collection('publicacoes')
@@ -25,6 +40,7 @@ class PublicacaoControl {
 
     return documento.id;
   }
+
 
   Future<List<Publicacao>> buscarPublicacoes() async {
     final resultado = await _firestore
