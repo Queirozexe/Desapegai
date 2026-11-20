@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../model/publicacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
+import '../controller/interesse_control.dart';
 
 class DetalhesPublicacaoScreen extends StatefulWidget {
   final Publicacao publicacao;
@@ -17,8 +18,121 @@ class DetalhesPublicacaoScreen extends StatefulWidget {
 class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   int _paginaAtual = 0;
   bool _demonstrouInteresse = false;
+  bool _carregandoInteresse = true;
+  bool _processandoInteresse = false;
+  bool _erroCarregamentoInteresse = false;
+
+  late final InteresseControl _interesseControl;
 
   Publicacao get publicacao => widget.publicacao;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _interesseControl = InteresseControl();
+    _carregarInteresse();
+  }
+
+  String _obterPublicacaoId() {
+    final id = publicacao.id;
+
+    if (id == null || id.trim().isEmpty) {
+      throw Exception('Publicação sem identificador válido.');
+    }
+
+    return id;
+  }
+
+  Future<void> _carregarInteresse() async {
+    try {
+      final temInteresse = await _interesseControl.usuarioTemInteresse(
+        _obterPublicacaoId(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _demonstrouInteresse = temInteresse;
+        _carregandoInteresse = false;
+        _erroCarregamentoInteresse = false;
+      });
+    } catch (erro) {
+      if (!mounted) return;
+
+      setState(() {
+        _carregandoInteresse = false;
+        _erroCarregamentoInteresse = true;
+      });
+    }
+  }
+
+  Future<void> _recarregarInteresse() async {
+    setState(() {
+      _carregandoInteresse = true;
+      _erroCarregamentoInteresse = false;
+    });
+
+    await _carregarInteresse();
+  }
+
+  Future<void> _registrarInteresse() async {
+    setState(() {
+      _processandoInteresse = true;
+    });
+
+    try {
+      await _interesseControl.demonstrarInteresse(
+        _obterPublicacaoId(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _demonstrouInteresse = true;
+        _processandoInteresse = false;
+      });
+
+      _aviso('Seu interesse foi registrado com sucesso.');
+    } catch (erro) {
+      if (!mounted) return;
+
+      setState(() {
+        _processandoInteresse = false;
+      });
+
+      _aviso('Não foi possível registrar seu interesse.');
+    }
+  }
+
+  Future<void> _cancelarInteresse() async {
+    setState(() {
+      _processandoInteresse = true;
+    });
+
+    try {
+      await _interesseControl.cancelarInteresse(
+        _obterPublicacaoId(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _demonstrouInteresse = false;
+        _processandoInteresse = false;
+      });
+
+      _aviso('Seu interesse foi cancelado.');
+    } catch (erro) {
+      if (!mounted) return;
+
+      setState(() {
+        _processandoInteresse = false;
+      });
+
+      _aviso('Não foi possível cancelar seu interesse.');
+    }
+  }
 
   void _aviso(String mensagem) {
     ScaffoldMessenger.of(
@@ -352,16 +466,31 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   }
 
   Widget _construirAcoes() {
+    if (_carregandoInteresse || _processandoInteresse) {
+      return const SizedBox(
+        height: 48,
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_erroCarregamentoInteresse) {
+      return SizedBox(
+        width: double.infinity,
+        child: Botoes(
+          'Tentar novamente',
+          onPressed: () => _recarregarInteresse(),
+        ),
+      );
+    }
+
     if (!_demonstrouInteresse) {
       return SizedBox(
         width: double.infinity,
         child: Botoes(
           'Tenho interesse',
-          onPressed: () {
-            setState(() {
-              _demonstrouInteresse = true;
-            });
-          },
+          onPressed: () => _registrarInteresse(),
         ),
       );
     }
@@ -370,11 +499,7 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: () {
-              setState(() {
-                _demonstrouInteresse = false;
-              });
-            },
+            onPressed: () => _cancelarInteresse(),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.green,
               side: const BorderSide(color: AppColors.green),
