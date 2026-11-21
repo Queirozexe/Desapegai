@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -45,9 +46,23 @@ class InteresseControl {
     return documento.exists;
   }
 
-  Future<void> demonstrarInteresse(String publicacaoId) async {
+  Future<void> demonstrarInteresse(
+      String publicacaoId, {
+        required String mensagem,
+      }) async {
     final id = _validarPublicacaoId(publicacaoId);
     final uid = _obterUidUsuarioAtual();
+    final texto = mensagem.trim();
+
+    if (texto.isEmpty) {
+      throw ArgumentError('A mensagem não pode ficar vazia.');
+    }
+
+    if (texto.length > 250) {
+      throw ArgumentError(
+        'A mensagem deve ter no máximo 250 caracteres.',
+      );
+    }
 
     final perfil = await _firestore
         .collection('usuarios')
@@ -60,14 +75,21 @@ class InteresseControl {
 
     final dadosPerfil = perfil.data();
     final nome = dadosPerfil?['nome'];
+    final cidade = dadosPerfil?['cidade'];
 
     if (nome is! String || nome.trim().isEmpty) {
       throw StateError('Nome do usuário não encontrado no perfil.');
     }
 
+    if (cidade is! String || cidade.trim().isEmpty) {
+      throw StateError('Cidade do usuário não encontrada no perfil.');
+    }
+
     await _colecaoInteresses(id).doc(uid).set({
       'usuarioId': uid,
-      'nomeUsuario': nome,
+      'nomeUsuario': nome.trim(),
+      'cidade': cidade.trim(),
+      'mensagem': texto,
       'dataCriacao': FieldValue.serverTimestamp(),
     });
   }

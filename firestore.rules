@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -31,65 +30,37 @@ service cloud.firestore {
 
     match /publicacoes/{publicacaoId} {
       allow create: if request.auth != null
-                   && request.resource.data.usuarioId == request.auth.uid
-                   && exists(
-                     /databases/$(database)/documents/usuarios/$(request.auth.uid)
-                   )
-                   && request.resource.data.nomeDoador is string
-                   && request.resource.data.nomeDoador ==
-                     get(
-                       /databases/$(database)/documents/usuarios/$(request.auth.uid)
-                     ).data.nome
-                   && request.resource.data.keys().hasOnly([
-                     'usuarioId',
-                     'nomeDoador',
-                     'titulo',
-                     'descricao',
-                     'categoria',
-                     'estadoConservacao',
-                     'cidade',
-                     'dataCriacao',
-                     'status',
-                     'imagens'
-                   ])
-                   && request.resource.data.keys().hasAll([
-                     'usuarioId',
-                     'nomeDoador',
-                     'titulo',
-                     'descricao',
-                     'categoria',
-                     'estadoConservacao',
-                     'cidade',
-                     'dataCriacao',
-                     'status',
-                     'imagens'
-                   ])
-                   && request.resource.data.titulo is string
-                   && request.resource.data.descricao is string
-                   && request.resource.data.categoria is string
-                   && request.resource.data.estadoConservacao is string
-                   && request.resource.data.cidade is string
-                   && request.resource.data.dataCriacao is timestamp
-                   && request.resource.data.status == 'ativa'
-                   && request.resource.data.imagens is list
-                   && request.resource.data.imagens.size() <= 3;
-
-      allow read: if request.auth != null
-                  && (
-                    resource.data.status == 'ativa'
-                    || resource.data.usuarioId == request.auth.uid
-                  );
-
-      allow update: if request.auth != null
-                    && resource.data.usuarioId == request.auth.uid
-                    && request.resource.data.usuarioId == resource.data.usuarioId
-                    && request.resource.data.dataCriacao == resource.data.dataCriacao
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                    && request.resource.data.usuarioId == request.auth.uid
+                    && exists(
+                      /databases/$(database)/documents/usuarios/$(request.auth.uid)
+                    )
+                    && request.resource.data.nomeDoador is string
+                    && request.resource.data.nomeDoador ==
+                      get(
+                        /databases/$(database)/documents/usuarios/$(request.auth.uid)
+                      ).data.nome
+                    && request.resource.data.keys().hasOnly([
+                      'usuarioId',
+                      'nomeDoador',
                       'titulo',
                       'descricao',
                       'categoria',
                       'estadoConservacao',
                       'cidade',
+                      'dataCriacao',
+                      'status',
+                      'imagens'
+                    ])
+                    && request.resource.data.keys().hasAll([
+                      'usuarioId',
+                      'nomeDoador',
+                      'titulo',
+                      'descricao',
+                      'categoria',
+                      'estadoConservacao',
+                      'cidade',
+                      'dataCriacao',
+                      'status',
                       'imagens'
                     ])
                     && request.resource.data.titulo is string
@@ -97,8 +68,118 @@ service cloud.firestore {
                     && request.resource.data.categoria is string
                     && request.resource.data.estadoConservacao is string
                     && request.resource.data.cidade is string
+                    && request.resource.data.dataCriacao is timestamp
+                    && request.resource.data.status == 'ativa'
                     && request.resource.data.imagens is list
                     && request.resource.data.imagens.size() <= 3;
+
+      allow read: if request.auth != null
+                    && (
+                      resource.data.status == 'ativa'
+                      || resource.data.usuarioId == request.auth.uid
+                      || (
+                        resource.data.keys().hasAny(['usuarioEscolhidoId'])
+                        && resource.data.usuarioEscolhidoId == request.auth.uid
+                      )
+                    );
+
+      allow update: if request.auth != null
+                    && resource.data.usuarioId == request.auth.uid
+                    && (
+
+                      (
+                        request.resource.data.usuarioId == resource.data.usuarioId
+                        && request.resource.data.dataCriacao == resource.data.dataCriacao
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'titulo',
+                          'descricao',
+                          'categoria',
+                          'estadoConservacao',
+                          'cidade',
+                          'imagens'
+                        ])
+                        && request.resource.data.titulo is string
+                        && request.resource.data.descricao is string
+                        && request.resource.data.categoria is string
+                        && request.resource.data.estadoConservacao is string
+                        && request.resource.data.cidade is string
+                        && request.resource.data.imagens is list
+                        && request.resource.data.imagens.size() <= 3
+                      )
+
+                      ||
+
+                      (
+                        resource.data.status == 'ativa'
+                        && !resource.data.keys().hasAny(['usuarioEscolhidoId'])
+                        && request.resource.data.status == 'em_andamento'
+                        && request.resource.data.usuarioEscolhidoId is string
+                        && request.resource.data.usuarioEscolhidoId != request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'status',
+                          'usuarioEscolhidoId'
+                        ])
+                        && exists(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)/interesses/$(request.resource.data.usuarioEscolhidoId)
+                        )
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)/interesses/$(request.resource.data.usuarioEscolhidoId)
+                        ).data.usuarioId == request.resource.data.usuarioEscolhidoId
+                      )
+
+                      ||
+
+                      (
+                        resource.data.status == 'em_andamento'
+                        && resource.data.usuarioEscolhidoId is string
+                        && request.resource.data.status == 'ativa'
+                        && !request.resource.data.keys().hasAny([
+                          'usuarioEscolhidoId',
+                          'dataConclusao'
+                        ])
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'status',
+                          'usuarioEscolhidoId'
+                        ])
+                      )
+
+                      ||
+
+                      (
+                        resource.data.status == 'em_andamento'
+                        && resource.data.usuarioEscolhidoId is string
+                        && !resource.data.keys().hasAny(['dataConclusao'])
+                        && request.resource.data.status == 'concluida'
+                        && request.resource.data.usuarioEscolhidoId == resource.data.usuarioEscolhidoId
+                        && request.resource.data.dataConclusao == request.time
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'status',
+                          'dataConclusao'
+                        ])
+                      )
+
+                      ||
+
+                      (
+                        resource.data.status == 'concluida'
+                        && resource.data.keys().hasAll([
+                          'usuarioEscolhidoId',
+                          'dataConclusao'
+                        ])
+                        && resource.data.usuarioEscolhidoId is string
+                        && resource.data.dataConclusao is timestamp
+                        && request.resource.data.status == 'ativa'
+                        && !request.resource.data.keys().hasAny([
+                          'usuarioEscolhidoId',
+                          'dataConclusao'
+                        ])
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'status',
+                          'usuarioEscolhidoId',
+                          'dataConclusao'
+                        ])
+                      )
+                    );
 
       allow delete: if request.auth != null
                     && resource.data.usuarioId == request.auth.uid;
@@ -106,15 +187,25 @@ service cloud.firestore {
 
     match /publicacoes/{publicacaoId}/interesses/{usuarioId} {
       allow get: if request.auth != null
-                 && request.auth.uid == usuarioId;
+                    && (
+                      request.auth.uid == usuarioId
+                      || (
+                        exists(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                        )
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                        ).data.usuarioId == request.auth.uid
+                      )
+                    );
 
       allow list: if request.auth != null
-                 && exists(
-                   /databases/$(database)/documents/publicacoes/$(publicacaoId)
-                 )
-                 && get(
-                   /databases/$(database)/documents/publicacoes/$(publicacaoId)
-                 ).data.usuarioId == request.auth.uid;
+                    && exists(
+                      /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                    )
+                    && get(
+                      /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                    ).data.usuarioId == request.auth.uid;
 
       allow create: if request.auth != null
                     && request.auth.uid == usuarioId
@@ -136,11 +227,15 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly([
                       'usuarioId',
                       'nomeUsuario',
+                      'cidade',
+                      'mensagem',
                       'dataCriacao'
                     ])
                     && request.resource.data.keys().hasAll([
                       'usuarioId',
                       'nomeUsuario',
+                      'cidade',
+                      'mensagem',
                       'dataCriacao'
                     ])
                     && request.resource.data.usuarioId == request.auth.uid
@@ -149,12 +244,34 @@ service cloud.firestore {
                        get(
                          /databases/$(database)/documents/usuarios/$(request.auth.uid)
                        ).data.nome
-                    && request.resource.data.dataCriacao == request.time;
+                    && request.resource.data.mensagem is string
+                    && request.resource.data.mensagem.size() > 0
+                    && request.resource.data.mensagem.size() <= 250
+                    && request.resource.data.dataCriacao == request.time
+                    && request.resource.data.cidade is string
+                    && request.resource.data.cidade.size() > 0
+                    && get(
+                      /databases/$(database)/documents/usuarios/$(request.auth.uid)
+                    ).data.cidade is string
+                    && request.resource.data.cidade ==
+                       get(
+                         /databases/$(database)/documents/usuarios/$(request.auth.uid)
+                       ).data.cidade;
 
       allow update: if false;
 
       allow delete: if request.auth != null
-                    && request.auth.uid == usuarioId;
+                    && (
+                      request.auth.uid == usuarioId
+                      || (
+                        exists(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                        )
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                        ).data.usuarioId == request.auth.uid
+                      )
+                    );
     }
   }
 }
