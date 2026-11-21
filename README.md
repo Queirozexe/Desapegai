@@ -14,7 +14,13 @@ O cadastro de publicações está implementado, incluindo armazenamento dos dado
 
 A tela inicial está integrada ao Firestore, exibindo publicações reais de outros usuários em tempo real. A listagem possui busca, filtros por categoria em ordem predefinida e imagens armazenadas no Cloudinary.
 
-A tela de detalhes das publicações também está implementada, permitindo visualizar as informações completas do item, navegar pelas imagens e consultar os dados públicos do doador. A demonstração de interesse está integrada ao Cloud Firestore, permitindo registrar e cancelar o interesse, com persistência após fechar e reabrir a publicação.
+A tela de detalhes das publicações permite visualizar as informações completas do item, navegar pelas imagens e consultar os dados públicos do doador. A demonstração e o cancelamento de interesse estão integrados ao Cloud Firestore.
+
+A tela **Minhas publicações** permite consultar as publicações cadastradas pelo usuário autenticado, filtrar os itens por situação e acompanhar a quantidade de interessados.
+
+A tela **Interessados** permite ao doador visualizar as pessoas que demonstraram interesse em uma publicação. A listagem apresenta o nome e a data do interesse e é atualizada em tempo real pelo Cloud Firestore.
+
+O gerenciamento completo do processo de doação, incluindo a escolha do interessado e as transições entre os estados da publicação, ainda está em desenvolvimento.
 
 ## Funcionalidades implementadas
 
@@ -138,41 +144,94 @@ As imagens são armazenadas no Cloudinary, enquanto suas URLs são registradas n
 
 ### 9. Tela de detalhes da publicação
 
-A `DetalhesPublicacaoScreen` apresenta as informações completas de uma publicação selecionada na tela inicial.
+A `DetalhesPublicacaoScreen` apresenta as informações completas de uma publicação selecionada.
 
 Funcionalidades implementadas:
 
-- Navegação da Home para a tela de detalhes ao selecionar um card.
+- Navegação da Home ou da tela Minhas publicações para a tela de detalhes.
 - Galeria de imagens com navegação horizontal entre as fotos.
 - Indicador da posição atual na galeria e da quantidade de imagens.
-- Barra superior fixa com opção de voltar e botão de denúncia.
+- Barra superior com opção de voltar.
 - Exibição do título, categoria, estado de conservação, cidade e descrição do item.
 - Exibição do nome do doador.
 - Seção com orientações de segurança para o usuário.
-- Botão "Tenho interesse", com registro no Cloud Firestore.
-- Consulta automática para verificar se o usuário já demonstrou interesse.
+- Verificação de interesse do usuário autenticado.
+- Registro de interesse no Cloud Firestore.
 - Exibição das opções "Cancelar interesse" e "Conversar" após o registro.
 - Cancelamento do interesse com remoção do respectivo documento no Firestore.
 
-A tela recebe os dados da publicação selecionada, evitando a necessidade de realizar uma nova consulta ao Firestore para carregar as informações já disponíveis na Home.
+A tela identifica se a publicação pertence ao usuário autenticado por meio da comparação entre o UID da sessão e o campo `usuarioId` da publicação.
+
+Quando a publicação pertence ao próprio usuário, os controles de demonstração de interesse e denúncia não são exibidos. Para publicações de outros usuários, as ações correspondentes ao interesse permanecem disponíveis.
 
 Os interesses são armazenados em uma subcoleção da publicação, utilizando o UID do usuário autenticado como identificador do documento. Dessa forma, cada usuário possui no máximo um registro de interesse por publicação.
 
 O estado do interesse é recuperado do Firestore ao abrir a tela, permitindo manter a informação mesmo após sair e retornar à publicação.
 
-O botão "Conversar" ainda não possui integração com um sistema de mensagens. O botão de denúncia está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
+O botão "Conversar" ainda não possui integração com um sistema de mensagens. O botão de denúncia está presente na interface para publicações de terceiros, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
 
-### 10. Navegação inferior
+### 10. Tela de Minhas publicações
+
+A `MinhasPublicacoesScreen` permite que o usuário autenticado visualize e acompanhe suas próprias publicações.
+
+Funcionalidades implementadas:
+
+- Listagem das publicações associadas ao UID do usuário autenticado.
+- Atualização em tempo real utilizando `snapshots()`.
+- Filtros por situação: Disponíveis, Em andamento e Concluídas.
+- Exibição da quantidade de publicações em cada filtro.
+- Exibição da imagem, título e situação de cada publicação.
+- Exibição da quantidade de pessoas interessadas em cada item.
+- Abertura da tela de detalhes ao selecionar uma publicação.
+- Acesso à tela de interessados por meio do botão "Ver interessados".
+- Exibição de indicadores visuais diferentes para cada situação.
+- Tratamento de carregamento, falha na consulta e listas vazias.
+
+A listagem utiliza o método `acompanharMinhasPublicacoes()` do `PublicacaoControl`, que consulta as publicações do usuário autenticado no Cloud Firestore.
+
+A quantidade de interesses de cada publicação é acompanhada por meio do método `acompanharQuantidadeInteresses()` do `InteresseControl`.
+
+Os filtros estão preparados para trabalhar com os estados `ativa`, `em_andamento` e `concluida`. A implementação do fluxo de gerenciamento que realiza as transições entre essas situações ainda está pendente.
+
+As opções de edição, remoção e gerenciamento da doação estão presentes na interface, mas suas operações ainda serão implementadas.
+
+### 11. Tela de interessados
+
+A `InteressadosScreen` permite ao doador visualizar as pessoas que demonstraram interesse em uma publicação de sua propriedade.
+
+Funcionalidades implementadas:
+
+- Abertura da tela a partir do botão "Ver interessados", na tela Minhas publicações.
+- Identificação da publicação selecionada.
+- Listagem das pessoas interessadas.
+- Exibição do nome do interessado.
+- Exibição da data em que o interesse foi registrado.
+- Exibição de iniciais do usuário em um avatar.
+- Ordenação dos interesses do mais recente para o mais antigo.
+- Atualização automática da listagem por meio de `snapshots()`.
+- Tratamento de carregamento, falha na consulta e ausência de interessados.
+
+O `InteresseControl` consulta o perfil do usuário que demonstrou interesse na coleção `usuarios` e recupera o campo `nome`.
+
+Esse nome é armazenado junto ao registro de interesse, permitindo que o doador visualize a identificação pública da pessoa sem precisar acessar diretamente seus dados privados.
+
+A consulta da lista é permitida somente ao proprietário da publicação, conforme as regras de segurança do Cloud Firestore.
+
+O gerenciamento da escolha de um interessado e o início efetivo da doação ainda serão desenvolvidos.
+
+### 12. Navegação inferior
 
 A aplicação apresenta cinco opções na navegação inferior:
 
-- Início
-- Minhas publicações
-- Doar
-- Mensagens
-- Perfil
+- Início.
+- Minhas publicações.
+- Doar.
+- Mensagens.
+- Perfil.
 
-Atualmente, as telas e os fluxos de **Início**, **Doar** e **Perfil** estão implementados. As áreas de Minhas Publicações e Mensagens serão desenvolvidas em etapas posteriores.
+As telas de Início, Minhas publicações, Doar e Perfil estão implementadas e integradas à navegação.
+
+A opção Mensagens ainda apresenta uma indicação de funcionalidade em desenvolvimento.
 
 ## Autenticação e armazenamento
 
@@ -184,7 +243,7 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários e das publicações.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações e dos interesses demonstrados pelos usuários.
 
 #### Coleção `usuarios`
 
@@ -239,27 +298,54 @@ Os campos armazenados são:
 | Campo | Descrição |
 |---|---|
 | `usuarioId` | UID do usuário que demonstrou interesse |
+| `nomeUsuario` | Nome público recuperado do perfil do usuário |
 | `dataCriacao` | Data e horário do registro, definidos pelo servidor |
+
+O `InteresseControl` é responsável por registrar, consultar, cancelar e acompanhar os interesses das publicações.
+
+A quantidade de interesses pode ser acompanhada em tempo real por meio de `snapshots()`.
+
+A listagem completa dos interessados também utiliza `snapshots()`, sendo ordenada pela data de criação em ordem decrescente.
+
+Os dados de identificação armazenados na subcoleção são limitados ao UID, nome e data do interesse. Os demais dados pessoais do perfil não são copiados para essa estrutura.
 
 O `PublicacaoControl` é responsável por cadastrar e consultar as publicações.
 
 A Home utiliza uma consulta em tempo real com `snapshots()`, filtrando as publicações pelo status `ativa` e excluindo aquelas cujo `usuarioId` corresponde ao UID do usuário autenticado.
 
-A consulta combinada utiliza um índice composto configurado no Cloud Firestore. Esse índice é necessário para executar os filtros utilizados na listagem da Home.
+A tela Minhas publicações utiliza uma consulta em tempo real das publicações associadas ao usuário autenticado.
+
+A consulta combinada utilizada na Home requer um índice composto configurado no Cloud Firestore.
 
 O campo `nomeDoador` armazena o nome público do usuário responsável pela publicação. Esse valor é obtido do perfil do usuário autenticado durante o cadastro e registrado diretamente no documento da publicação.
 
 ### Regras de segurança
 
-O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios` e `publicacoes`.
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes` e à subcoleção `interesses`.
 
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
-Na coleção `publicacoes`, as regras controlam a criação, leitura, atualização e exclusão dos documentos, incluindo a verificação do UID do autor e o limite de até três imagens por publicação.
+Na coleção `usuarios`, as regras restringem a consulta e a atualização do documento ao próprio usuário. A listagem geral e a exclusão de perfis são bloqueadas.
 
-A subcoleção `interesses` possui regras específicas de acesso. O usuário autenticado pode consultar somente seu próprio registro, demonstrar interesse em publicações ativas de outros usuários e cancelar somente o próprio interesse.
+Na coleção `publicacoes`, as regras controlam a criação, leitura, atualização e exclusão dos documentos, incluindo:
 
-As regras impedem alterações nos registros existentes e a listagem geral dos documentos de interesse nesta etapa do projeto.
+- Verificação do UID do autor.
+- Verificação do nome público do doador com base no perfil cadastrado.
+- Validação dos campos permitidos.
+- Restrição do status inicial para `ativa`.
+- Limite de até três imagens por publicação.
+- Permissão de leitura para publicações ativas ou para o próprio autor.
+- Restrição das alterações aos campos permitidos.
+
+A subcoleção `interesses` possui regras específicas:
+
+- O interessado pode consultar somente o próprio documento de interesse.
+- Somente o proprietário da publicação pode listar os documentos da subcoleção.
+- O usuário autenticado pode demonstrar interesse em publicações ativas de outros usuários.
+- O UID e o nome registrados precisam corresponder à conta autenticada e ao perfil armazenado no Firestore.
+- A data do registro deve corresponder ao horário do servidor.
+- A alteração de documentos de interesse existentes é bloqueada.
+- O usuário pode cancelar somente o próprio interesse.
 
 ## Armazenamento de imagens
 
@@ -313,7 +399,8 @@ desapegai/
 │   │   └── publicacao_control.dart
 │   ├── model/
 │   │   ├── usuario.dart
-│   │   └── publicacao.dart
+│   │   ├── publicacao.dart
+│   │   └── interessado.dart
 │   ├── screens/
 │   │   ├── auth_gate.dart
 │   │   ├── home_screen.dart
@@ -322,8 +409,10 @@ desapegai/
 │   │   ├── register_screen.dart
 │   │   ├── profile_screen.dart
 │   │   ├── edit_profile_screen.dart
+│   │   ├── cadastro_publicacao_screen.dart
 │   │   ├── detalhes_publicacao_screen.dart
-│   │   └── cadastro_publicacao_screen.dart
+│   │   ├── minhas_publicacoes_screen.dart
+│   │   └── interessados_screen.dart
 │   ├── services/
 │   │   ├── cloudinary_service.dart
 │   │   └── localizacao_service.dart
@@ -355,10 +444,14 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Com sessão autenticada | `HomeScreen` |
 | `/cadastro` | `RegisterScreen` |
 | `/recuperar-senha` | `RecoverPasswordScreen` |
+| Opção Início na navegação inferior | `HomeScreen` |
+| Opção Minhas na navegação inferior | `MinhasPublicacoesScreen` |
+| Opção Doar na navegação inferior | `CadastroPublicacaoScreen` |
+| Opção Mensagens na navegação inferior | Funcionalidade em desenvolvimento |
 | Opção Perfil na navegação inferior | `ProfileScreen` |
 | Botão Editar perfil | `EditProfileScreen` |
-| Opção Doar na navegação inferior | `CadastroPublicacaoScreen` |
-| Seleção de uma publicação na Home | `DetalhesPublicacaoScreen` |
+| Seleção de publicação na Home ou em Minhas | `DetalhesPublicacaoScreen` |
+| Botão Ver interessados | `InteressadosScreen` |
 
 A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado.
 
@@ -368,7 +461,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários e das publicações.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações e dos interesses.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -394,7 +487,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 Clone o repositório:
 
 ```bash
-git clone https://github.com/Queirozexe/Desapegai.git
+git clone https://github.com/Feli2099/Desapegai.git
 cd Desapegai
 ```
 
@@ -498,42 +591,53 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Exibição das informações da publicação na tela de detalhes.
 - [x] Navegação horizontal entre as imagens da galeria.
 - [x] Exibição do nome do doador na publicação.
-- [x] Exibição dos filtros de categoria na ordem predefinida.
-- [x] Alteração visual dos botões após demonstrar interesse.
 - [x] Consulta do interesse do usuário ao abrir a publicação.
 - [x] Registro de interesse no Cloud Firestore.
 - [x] Prevenção de registros duplicados por usuário e publicação.
 - [x] Persistência do interesse após fechar e reabrir a publicação.
 - [x] Cancelamento do interesse com exclusão do documento no Firestore.
+- [x] Ocultação das ações de interesse e denúncia nas próprias publicações.
+- [x] Exibição das ações de interesse nas publicações de outros usuários.
 - [x] Validação das regras de segurança da subcoleção `interesses`.
+- [x] Listagem das próprias publicações.
+- [x] Filtros de Minhas publicações por situação.
+- [x] Exibição da quantidade de interessados nos cards.
+- [x] Navegação de Minhas publicações para a tela de detalhes.
+- [x] Abertura da tela de interessados pelo botão correspondente.
+- [x] Registro do nome do interessado junto ao documento de interesse.
+- [x] Listagem de interessados com nome e data.
+- [x] Atualização em tempo real da lista de interessados.
+- [x] Teste do fluxo de interesse utilizando duas contas distintas.
+- [x] Verificação de que somente o proprietário da publicação consegue listar seus interessados.
 
-A análise estática com `flutter analyze` foi executada. Atualmente, não apresenta erros, mas ainda existem avisos e informações do analisador relacionados a imports, widgets e componentes que poderão ser revisados em uma etapa de manutenção do código.
+A análise estática com `flutter analyze` foi executada. Atualmente, não apresenta erros novos de compilação, mas ainda existem avisos e informações do analisador relacionados a imports, widgets e componentes que poderão ser revisados em uma etapa de manutenção do código.
 
 ## Funcionalidades pendentes
 
 - [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
 - [ ] Edição de publicações.
 - [ ] Remoção de publicações e tratamento das imagens correspondentes no Cloudinary.
-- [ ] Tela de Minhas Publicações.
+- [ ] Gerenciamento da escolha de um interessado para receber a doação.
+- [ ] Alteração do status da publicação durante o processo de doação.
+- [ ] Conclusão e reabertura de doações.
+- [ ] Implementação do fluxo de conversas entre usuários.
+- [ ] Notificações relacionadas aos interesses e às etapas da doação.
 - [ ] Implementação de filtro de distância com cálculo geográfico real.
 - [ ] Histórico de doações.
 - [ ] Ajuda e segurança.
 - [ ] Avaliações.
 - [ ] Painel administrativo.
+- [ ] Registro e gerenciamento de denúncias.
 - [ ] Testes de interface em diferentes dispositivos Android.
 - [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
-- [ ] Notificação ao doador quando alguém demonstrar interesse.
-- [ ] Implementação do fluxo de conversas entre usuários.
-- [ ] Implementação do registro e gerenciamento de denúncias.
-- [ ] Visualização dos usuários interessados pelo doador responsável pela publicação.
 
 ## Próximas etapas
 
 ### Publicações e doações
 
 - Implementar edição e remoção de publicações.
-- Desenvolver a tela de Minhas Publicações.
-- Desenvolver a visualização e o gerenciamento dos interessados pelo doador.
+- Desenvolver a escolha de uma pessoa interessada pelo doador.
+- Implementar o início, acompanhamento e conclusão da doação.
 - Desenvolver o fluxo de conversas entre doadores e interessados.
 - Implementar notificações relacionadas às publicações.
 
