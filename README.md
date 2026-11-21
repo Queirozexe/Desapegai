@@ -10,17 +10,19 @@ O Desapegaí é uma plataforma voltada exclusivamente a **doações gratuitas**.
 
 O projeto está em desenvolvimento incremental. A autenticação, o gerenciamento de sessão e o gerenciamento de perfis estão integrados ao Firebase Authentication e ao Cloud Firestore.
 
-O cadastro de publicações está implementado, incluindo armazenamento dos dados no Cloud Firestore, upload de imagens pelo Cloudinary e preenchimento da localização por GPS.
+O cadastro, a edição e a remoção de publicações estão implementados. O aplicativo permite cadastrar itens para doação gratuita, armazenar suas informações no Firestore e enviar imagens ao Cloudinary.
 
-A tela inicial está integrada ao Firestore, exibindo publicações reais de outros usuários em tempo real. A listagem possui busca, filtros por categoria em ordem predefinida e imagens armazenadas no Cloudinary.
+A tela inicial está integrada ao Firestore, exibindo publicações disponíveis em tempo real. A listagem possui busca, filtros por categoria e imagens armazenadas no Cloudinary.
 
-A tela de detalhes das publicações permite visualizar as informações completas do item, navegar pelas imagens e consultar os dados públicos do doador. A demonstração e o cancelamento de interesse estão integrados ao Cloud Firestore.
+A tela de detalhes permite visualizar as informações completas de uma publicação, navegar pelas imagens, consultar os dados públicos do doador e demonstrar ou cancelar interesse. Ao demonstrar interesse, o usuário pode enviar uma mensagem personalizada.
 
-A tela **Minhas publicações** permite consultar as publicações cadastradas pelo usuário autenticado, filtrar os itens por situação e acompanhar a quantidade de interessados.
+A tela **Minhas publicações** permite acompanhar as publicações cadastradas, filtrar por situação, editar e remover itens e acessar o gerenciamento dos interessados.
 
-A tela **Interessados** permite ao doador visualizar as pessoas que demonstraram interesse em uma publicação. A listagem apresenta o nome e a data do interesse e é atualizada em tempo real pelo Cloud Firestore.
+A tela **Interessados** apresenta as pessoas interessadas, incluindo nome, cidade, data e mensagem enviada. O doador pode escolher um interessado, desfazer a escolha e concluir a doação.
 
-O gerenciamento completo do processo de doação, incluindo a escolha do interessado e as transições entre os estados da publicação, ainda está em desenvolvimento.
+O gerenciamento dos estados da publicação está implementado, incluindo as situações disponível, em andamento e concluída, com possibilidade de reabrir uma doação concluída.
+
+A comunicação por mensagens entre os usuários ainda está em desenvolvimento.
 
 ## Funcionalidades implementadas
 
@@ -172,7 +174,7 @@ O botão "Conversar" ainda não possui integração com um sistema de mensagens.
 
 ### 10. Tela de Minhas publicações
 
-A `MinhasPublicacoesScreen` permite que o usuário autenticado visualize e acompanhe suas próprias publicações.
+A `MinhasPublicacoesScreen` permite que o usuário autenticado visualize e gerencie suas próprias publicações.
 
 Funcionalidades implementadas:
 
@@ -182,42 +184,43 @@ Funcionalidades implementadas:
 - Exibição da quantidade de publicações em cada filtro.
 - Exibição da imagem, título e situação de cada publicação.
 - Exibição da quantidade de pessoas interessadas em cada item.
-- Abertura da tela de detalhes ao selecionar uma publicação.
-- Acesso à tela de interessados por meio do botão "Ver interessados".
-- Exibição de indicadores visuais diferentes para cada situação.
-- Tratamento de carregamento, falha na consulta e listas vazias.
+- Abertura da tela de detalhes.
+- Acesso à tela de interessados.
+- Edição de publicações existentes.
+- Remoção de publicações mediante confirmação.
+- Reabertura de doações concluídas.
 
 A listagem utiliza o método `acompanharMinhasPublicacoes()` do `PublicacaoControl`, que consulta as publicações do usuário autenticado no Cloud Firestore.
 
-A quantidade de interesses de cada publicação é acompanhada por meio do método `acompanharQuantidadeInteresses()` do `InteresseControl`.
+A quantidade de interesses de cada publicação é acompanhada em tempo real pelo `InteresseControl`.
 
-Os filtros estão preparados para trabalhar com os estados `ativa`, `em_andamento` e `concluida`. A implementação do fluxo de gerenciamento que realiza as transições entre essas situações ainda está pendente.
+O gerenciamento dos estados permite que o doador escolha um interessado, desfaça a escolha, conclua a doação e reabra uma publicação concluída.
 
-As opções de edição, remoção e gerenciamento da doação estão presentes na interface, mas suas operações ainda serão implementadas.
+Ao remover uma publicação, os registros de interesse associados também são excluídos do Firestore.
 
 ### 11. Tela de interessados
 
-A `InteressadosScreen` permite ao doador visualizar as pessoas que demonstraram interesse em uma publicação de sua propriedade.
+A `InteressadosScreen` permite ao doador visualizar e gerenciar as pessoas que demonstraram interesse em uma publicação de sua propriedade.
 
 Funcionalidades implementadas:
 
-- Abertura da tela a partir do botão "Ver interessados", na tela Minhas publicações.
+- Abertura da tela pela opção "Ver interessados".
 - Identificação da publicação selecionada.
 - Listagem das pessoas interessadas.
-- Exibição do nome do interessado.
-- Exibição da data em que o interesse foi registrado.
+- Exibição do nome e da cidade do interessado.
+- Exibição da data e da mensagem enviada ao demonstrar interesse.
 - Exibição de iniciais do usuário em um avatar.
 - Ordenação dos interesses do mais recente para o mais antigo.
-- Atualização automática da listagem por meio de `snapshots()`.
-- Tratamento de carregamento, falha na consulta e ausência de interessados.
+- Atualização em tempo real utilizando `snapshots()`.
+- Escolha de uma pessoa interessada para receber a doação.
+- Possibilidade de desfazer a escolha.
+- Conclusão da doação após a escolha do interessado.
 
-O `InteresseControl` consulta o perfil do usuário que demonstrou interesse na coleção `usuarios` e recupera o campo `nome`.
+O `InteresseControl` recupera os dados necessários do perfil do usuário e os armazena junto ao registro de interesse.
 
-Esse nome é armazenado junto ao registro de interesse, permitindo que o doador visualize a identificação pública da pessoa sem precisar acessar diretamente seus dados privados.
+O doador pode consultar as informações dos interessados e gerenciar o andamento da doação pela própria tela.
 
 A consulta da lista é permitida somente ao proprietário da publicação, conforme as regras de segurança do Cloud Firestore.
-
-O gerenciamento da escolha de um interessado e o início efetivo da doação ainda serão desenvolvidos.
 
 ### 12. Navegação inferior
 
@@ -276,9 +279,11 @@ Os principais campos são:
 | `estadoConservacao` | Estado de conservação informado |
 | `cidade` | Cidade associada à publicação |
 | `dataCriacao` | Data e horário de criação |
-| `status` | Situação da publicação, inicialmente `ativa` |
+| `status` | Situação da publicação: `ativa`, `em_andamento` ou `concluida` |
 | `imagens` | Lista de URLs das imagens armazenadas no Cloudinary |
 | `nomeDoador` | Nome público do usuário responsável pela publicação |
+| `usuarioEscolhidoId` | UID do usuário escolhido para receber a doação |
+| `dataConclusao` | Data e horário da conclusão da doação |
 
 #### Subcoleção `interesses`
 
@@ -300,6 +305,8 @@ Os campos armazenados são:
 | `usuarioId` | UID do usuário que demonstrou interesse |
 | `nomeUsuario` | Nome público recuperado do perfil do usuário |
 | `dataCriacao` | Data e horário do registro, definidos pelo servidor |
+| `cidade` | Cidade do usuário interessado |
+| `mensagem` | Mensagem personalizada enviada ao demonstrar interesse, limitada a 250 caracteres |
 
 O `InteresseControl` é responsável por registrar, consultar, cancelar e acompanhar os interesses das publicações.
 
@@ -307,7 +314,7 @@ A quantidade de interesses pode ser acompanhada em tempo real por meio de `snaps
 
 A listagem completa dos interessados também utiliza `snapshots()`, sendo ordenada pela data de criação em ordem decrescente.
 
-Os dados de identificação armazenados na subcoleção são limitados ao UID, nome e data do interesse. Os demais dados pessoais do perfil não são copiados para essa estrutura.
+Os dados armazenados na subcoleção incluem o UID, nome, cidade, mensagem e data do interesse. Essas informações permitem que o doador identifique os interessados e visualize a mensagem enviada, sem precisar acessar diretamente os dados privados do perfil.
 
 O `PublicacaoControl` é responsável por cadastrar e consultar as publicações.
 
@@ -334,7 +341,7 @@ Na coleção `publicacoes`, as regras controlam a criação, leitura, atualizaç
 - Validação dos campos permitidos.
 - Restrição do status inicial para `ativa`.
 - Limite de até três imagens por publicação.
-- Permissão de leitura para publicações ativas ou para o próprio autor.
+- Permissão de leitura para publicações ativas, para o próprio autor ou para o usuário escolhido, conforme as condições definidas nas regras.
 - Restrição das alterações aos campos permitidos.
 
 A subcoleção `interesses` possui regras específicas:
@@ -346,6 +353,8 @@ A subcoleção `interesses` possui regras específicas:
 - A data do registro deve corresponder ao horário do servidor.
 - A alteração de documentos de interesse existentes é bloqueada.
 - O usuário pode cancelar somente o próprio interesse.
+- Validação da cidade conforme o perfil do usuário.
+- Limitação da mensagem a até 250 caracteres.
 
 ## Armazenamento de imagens
 
@@ -609,17 +618,21 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Atualização em tempo real da lista de interessados.
 - [x] Teste do fluxo de interesse utilizando duas contas distintas.
 - [x] Verificação de que somente o proprietário da publicação consegue listar seus interessados.
+- [x] Envio de mensagem personalizada ao demonstrar interesse.
+- [x] Exibição da cidade e da mensagem na tela de interessados.
+- [x] Escolha de um interessado para receber a doação.
+- [x] Desfazer a escolha de um interessado.
+- [x] Conclusão de uma doação.
+- [x] Reabertura de uma doação concluída.
+- [x] Edição de publicações existentes.
+- [x] Remoção de publicações e dos registros de interesse associados.
 
-A análise estática com `flutter analyze` foi executada. Atualmente, não apresenta erros novos de compilação, mas ainda existem avisos e informações do analisador relacionados a imports, widgets e componentes que poderão ser revisados em uma etapa de manutenção do código.
+A análise estática com `flutter analyze` foi executada sem identificar erros. Permanecem 2 warnings e 24 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
 
 ## Funcionalidades pendentes
 
 - [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
-- [ ] Edição de publicações.
-- [ ] Remoção de publicações e tratamento das imagens correspondentes no Cloudinary.
-- [ ] Gerenciamento da escolha de um interessado para receber a doação.
-- [ ] Alteração do status da publicação durante o processo de doação.
-- [ ] Conclusão e reabertura de doações.
+- [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
 - [ ] Implementação do fluxo de conversas entre usuários.
 - [ ] Notificações relacionadas aos interesses e às etapas da doação.
 - [ ] Implementação de filtro de distância com cálculo geográfico real.
@@ -633,16 +646,15 @@ A análise estática com `flutter analyze` foi executada. Atualmente, não apres
 
 ## Próximas etapas
 
-### Publicações e doações
+### Comunicação entre usuários
 
-- Implementar edição e remoção de publicações.
-- Desenvolver a escolha de uma pessoa interessada pelo doador.
-- Implementar o início, acompanhamento e conclusão da doação.
-- Desenvolver o fluxo de conversas entre doadores e interessados.
-- Implementar notificações relacionadas às publicações.
+- Desenvolver o sistema de conversas entre doadores e interessados.
+- Implementar o envio e o recebimento de mensagens.
+- Permitir o acompanhamento das conversas relacionadas às doações.
 
 ### Funcionalidades posteriores
 
+- Implementar notificações relacionadas às publicações e às doações.
 - Implementar filtro de distância com cálculo geográfico.
 - Desenvolver histórico e acompanhamento de doações.
 - Implementar ajuda e segurança.
