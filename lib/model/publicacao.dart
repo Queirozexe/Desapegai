@@ -12,6 +12,8 @@ class Publicacao {
   final DateTime dataCriacao;
   final String status;
   final List<String> imagens;
+  final String? usuarioEscolhidoId;
+  final DateTime? dataConclusao;
 
   Publicacao({
     this.id,
@@ -25,10 +27,12 @@ class Publicacao {
     required this.dataCriacao,
     this.status = 'ativa',
     this.imagens = const [],
+    this.usuarioEscolhidoId,
+    this.dataConclusao,
   });
 
   Map<String, dynamic> toMap() {
-    return {
+    final dados = <String, dynamic>{
       'usuarioId': usuarioId,
       'nomeDoador': nomeDoador,
       'titulo': titulo,
@@ -40,6 +44,16 @@ class Publicacao {
       'status': status,
       'imagens': imagens,
     };
+
+    if (usuarioEscolhidoId != null) {
+      dados['usuarioEscolhidoId'] = usuarioEscolhidoId!;
+    }
+
+    if (dataConclusao != null) {
+      dados['dataConclusao'] = dataConclusao!;
+    }
+
+    return dados;
   }
 
   factory Publicacao.fromMap(
@@ -58,6 +72,10 @@ class Publicacao {
       dataCriacao: (map['dataCriacao'] as Timestamp).toDate(),
       status: map['status'] as String? ?? 'ativa',
       imagens: List<String>.from(map['imagens'] ?? []),
+      usuarioEscolhidoId: map['usuarioEscolhidoId'] as String?,
+      dataConclusao: map['dataConclusao'] is Timestamp
+          ? (map['dataConclusao'] as Timestamp).toDate()
+          : null,
     );
   }
 }

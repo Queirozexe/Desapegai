@@ -32,6 +32,8 @@ class _MinhasPublicacoesScreenState
 
   late final Stream<List<Publicacao>> _publicacoesStream;
 
+  String? _publicacaoEmProcessamentoId;
+  String? _publicacaoEmRemocaoId;
   final Map<String, Stream<int>> _streamsInteresses = {};
 
   _FiltroMinhasPublicacoes _filtroSelecionado =
@@ -97,6 +99,111 @@ class _MinhasPublicacoesScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensagem)),
     );
+  }
+
+  void _editarPublicacao(Publicacao publicacao) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CadastroPublicacaoScreen(
+          publicacao: publicacao,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _reabrirDoacao(Publicacao publicacao) async {
+    final id = publicacao.id;
+
+    if (id == null || id.trim().isEmpty) {
+      _aviso('Identificador da publicação inválido.');
+      return;
+    }
+
+    setState(() {
+      _publicacaoEmProcessamentoId = id;
+    });
+
+    try {
+      await _publicacaoControl.reabrirDoacao(
+        publicacaoId: id,
+      );
+
+      if (!mounted) return;
+
+      _aviso('Publicação reaberta e disponível para receber interesses!');
+    } catch (erro) {
+      if (!mounted) return;
+
+      _aviso('Não foi possível reabrir a publicação.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _publicacaoEmProcessamentoId = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmarRemocao(Publicacao publicacao) async {
+    final id = publicacao.id;
+
+    if (id == null || id.trim().isEmpty) {
+      _aviso('Identificador da publicação inválido.');
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remover publicação?'),
+          content: Text(
+            'Tem certeza de que deseja remover "${publicacao.titulo}"? '
+                'Essa ação não pode ser desfeita.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Remover',
+                style: TextStyle(color: Color(0xFF9A3412)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    setState(() {
+      _publicacaoEmRemocaoId = id;
+    });
+
+    try {
+      await _publicacaoControl.removerPublicacao(
+        publicacaoId: id,
+      );
+
+      if (!mounted) return;
+
+      _aviso('Publicação removida com sucesso!');
+    } catch (erro) {
+      if (!mounted) return;
+
+      _aviso('Não foi possível remover a publicação. Tente novamente.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _publicacaoEmRemocaoId = null;
+        });
+      }
+    }
   }
 
   Widget _imagemPadrao() {
@@ -261,13 +368,52 @@ class _MinhasPublicacoesScreenState
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    ElevatedButtonTheme(
-                      data: ElevatedButtonThemeData(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.green,
-                          foregroundColor: Colors.white,
+                    if (status != 'concluida')
+                      ElevatedButtonTheme(
+                        data: ElevatedButtonThemeData(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.green,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        child: Botoes(
+                          status == 'em_andamento'
+                              ? 'Gerenciar doação'
+                              : 'Ver interessados',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => InteressadosScreen(
+                                  publicacao: publicacao,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                    if (status == 'concluida')
+                      OutlinedButton(
+                        onPressed: _publicacaoEmProcessamentoId == publicacao.id
+                            ? null
+                            : () => _reabrirDoacao(publicacao),
+                        style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 44),
                           padding: const EdgeInsets.symmetric(horizontal: 14),
+                          foregroundColor: AppColors.green,
+                          side: const BorderSide(
+                            color: AppColors.green,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -276,33 +422,26 @@ class _MinhasPublicacoesScreenState
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        child: _publicacaoEmProcessamentoId == publicacao.id
+                            ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                            : const Text('Reabrir'),
                       ),
-                      child: Botoes(
-                        'Ver interessados',
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => InteressadosScreen(
-                                publicacao: publicacao,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+
                     OutlinedButton(
-                      onPressed: () {
-                        _aviso(
-                          'A edição de publicações será implementada '
-                              'em uma próxima etapa.',
-                        );
-                      },
+                      onPressed: () => _editarPublicacao(publicacao),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 44),
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         foregroundColor: const Color(0xFF1B2B24),
-                        side: const BorderSide(color: Color(0xFF1B2B24)),
+                        side: const BorderSide(
+                          color: Color(0xFF1B2B24),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -313,18 +452,18 @@ class _MinhasPublicacoesScreenState
                       ),
                       child: const Text('Editar'),
                     ),
+
                     OutlinedButton(
-                      onPressed: () {
-                        _aviso(
-                          'A remoção de publicações será implementada '
-                              'em uma próxima etapa.',
-                        );
-                      },
+                      onPressed: _publicacaoEmRemocaoId == publicacao.id
+                          ? null
+                          : () => _confirmarRemocao(publicacao),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 44),
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         foregroundColor: const Color(0xFF9A3412),
-                        side: const BorderSide(color: Color(0xFF9A3412)),
+                        side: const BorderSide(
+                          color: Color(0xFF9A3412),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -333,7 +472,15 @@ class _MinhasPublicacoesScreenState
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      child: const Text('Remover'),
+                      child: _publicacaoEmRemocaoId == publicacao.id
+                          ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                          : const Text('Remover'),
                     ),
                   ],
                 ),

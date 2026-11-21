@@ -15,7 +15,12 @@ import 'profile_screen.dart';
 import 'minhas_publicacoes_screen.dart';
 
 class CadastroPublicacaoScreen extends StatefulWidget {
-  const CadastroPublicacaoScreen({super.key});
+  final Publicacao? publicacao;
+
+  const CadastroPublicacaoScreen({
+    super.key,
+    this.publicacao,
+  });
 
   @override
   State<CadastroPublicacaoScreen> createState() =>
@@ -39,6 +44,12 @@ class _CadastroPublicacaoScreenState
   final CloudinaryService _cloudinaryService = CloudinaryService();
 
   final List<XFile> _imagensSelecionadas = [];
+  final List<String> _imagensExistentes = [];
+
+  bool get _modoEdicao => widget.publicacao != null;
+
+  int get _totalImagens =>
+      _imagensExistentes.length + _imagensSelecionadas.length;
 
   String? _categoria;
   String? _estadoConservacao;
@@ -104,6 +115,24 @@ class _CadastroPublicacaoScreenState
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    final publicacao = widget.publicacao;
+
+    if (publicacao != null) {
+      _tituloController.text = publicacao.titulo;
+      _descricaoController.text = publicacao.descricao;
+      _cidadeController.text = publicacao.cidade;
+
+      _categoria = publicacao.categoria;
+      _estadoConservacao = publicacao.estadoConservacao;
+
+      _imagensExistentes.addAll(publicacao.imagens);
+    }
+  }
+
+  @override
   void dispose() {
     _tituloController.dispose();
     _descricaoController.dispose();
@@ -112,15 +141,22 @@ class _CadastroPublicacaoScreenState
   }
 
   Future<void> _selecionarImagens() async {
+    if (_totalImagens >= _limiteImagens) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você já atingiu o limite de 3 imagens.'),
+        ),
+      );
+      return;
+    }
+
     final imagens = await _imagePicker.pickMultiImage(
       imageQuality: 80,
     );
 
     if (imagens.isEmpty || !mounted) return;
 
-    final vagasDisponiveis =
-        _limiteImagens - _imagensSelecionadas.length;
-
+    final vagasDisponiveis = _limiteImagens - _totalImagens;
     final novasImagens = imagens.take(vagasDisponiveis).toList();
 
     setState(() {
@@ -131,13 +167,23 @@ class _CadastroPublicacaoScreenState
       List<XFile>.from(_imagensSelecionadas),
     );
 
-    if (imagens.length > vagasDisponiveis && mounted) {
+    if (imagens.length > vagasDisponiveis) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Você pode selecionar no máximo 3 imagens.'),
         ),
       );
     }
+  }
+
+  void _removerImagemExistente(int indice) {
+    setState(() {
+      _imagensExistentes.removeAt(indice);
+    });
+
+    _imagensFieldKey.currentState?.didChange(
+      List<XFile>.from(_imagensSelecionadas),
+    );
   }
 
   void _removerImagem(int indice) {
@@ -166,7 +212,7 @@ class _CadastroPublicacaoScreenState
               ),
             ),
             Text(
-              '${_imagensSelecionadas.length}/$_limiteImagens',
+              '$_totalImagens/$_limiteImagens',
               style: const TextStyle(
                 color: Color(0xFF777777),
                 fontSize: 13,
@@ -175,7 +221,7 @@ class _CadastroPublicacaoScreenState
           ],
         ),
         const SizedBox(height: 10),
-        if (_imagensSelecionadas.isEmpty)
+        if (_totalImagens == 0)
           InkWell(
             onTap: _selecionarImagens,
             borderRadius: BorderRadius.circular(12),
@@ -223,6 +269,47 @@ class _CadastroPublicacaoScreenState
             spacing: 10,
             runSpacing: 10,
             children: [
+              for (int i = 0; i < _imagensExistentes.length; i++)
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        _imagensExistentes[i],
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 100,
+                            height: 100,
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.broken_image_outlined),
+                          );
+                        },
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => _removerImagemExistente(i),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            size: 18,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               for (int i = 0; i < _imagensSelecionadas.length; i++)
                 Stack(
                   children: [
@@ -256,7 +343,7 @@ class _CadastroPublicacaoScreenState
                     ),
                   ],
                 ),
-              if (_imagensSelecionadas.length < _limiteImagens)
+              if (_totalImagens < _limiteImagens)
                 InkWell(
                   onTap: _selecionarImagens,
                   borderRadius: BorderRadius.circular(12),
@@ -299,50 +386,81 @@ class _CadastroPublicacaoScreenState
       return;
     }
 
+    if (_modoEdicao && widget.publicacao?.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível identificar a publicação.'),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _salvando = true;
     });
 
     try {
-      final urlsImagens = <String>[];
+      final urlsImagens = List<String>.from(_imagensExistentes);
 
       for (final imagem in _imagensSelecionadas) {
         final url = await _cloudinaryService.enviarImagem(imagem);
         urlsImagens.add(url);
       }
 
-      final publicacao = Publicacao(
-        usuarioId: usuario.uid,
-        titulo: _tituloController.text.trim(),
-        descricao: _descricaoController.text.trim(),
-        categoria: _categoria!,
-        estadoConservacao: _estadoConservacao!,
-        cidade: _cidadeController.text.trim(),
-        dataCriacao: DateTime.now(),
-        imagens: urlsImagens,
-      );
+      if (_modoEdicao) {
+        await _publicacaoControl.atualizarPublicacao(
+          publicacaoId: widget.publicacao!.id!,
+          titulo: _tituloController.text.trim(),
+          descricao: _descricaoController.text.trim(),
+          categoria: _categoria!,
+          estadoConservacao: _estadoConservacao!,
+          cidade: _cidadeController.text.trim(),
+          imagens: urlsImagens,
+        );
 
-      await _publicacaoControl.cadastrarPublicacao(publicacao);
+        if (!mounted) return;
 
-      if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Publicação atualizada com sucesso!'),
+          ),
+        );
 
-      _tituloController.clear();
-      _descricaoController.clear();
-      _cidadeController.clear();
+        Navigator.pop(context);
+      } else {
+        final publicacao = Publicacao(
+          usuarioId: usuario.uid,
+          titulo: _tituloController.text.trim(),
+          descricao: _descricaoController.text.trim(),
+          categoria: _categoria!,
+          estadoConservacao: _estadoConservacao!,
+          cidade: _cidadeController.text.trim(),
+          dataCriacao: DateTime.now(),
+          imagens: urlsImagens,
+        );
 
-      _formKey.currentState?.reset();
+        await _publicacaoControl.cadastrarPublicacao(publicacao);
 
-      setState(() {
-        _imagensSelecionadas.clear();
-        _categoria = null;
-        _estadoConservacao = null;
-      });
+        if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Publicação cadastrada com sucesso!'),
-        ),
-      );
+        _tituloController.clear();
+        _descricaoController.clear();
+        _cidadeController.clear();
+
+        _formKey.currentState?.reset();
+
+        setState(() {
+          _imagensSelecionadas.clear();
+          _categoria = null;
+          _estadoConservacao = null;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Publicação cadastrada com sucesso!'),
+          ),
+        );
+      }
     } on CloudinaryException catch (e) {
       if (!mounted) return;
 
@@ -357,18 +475,26 @@ class _CadastroPublicacaoScreenState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível salvar a publicação.'),
+        SnackBar(
+          content: Text(
+            _modoEdicao
+                ? 'Não foi possível atualizar a publicação.'
+                : 'Não foi possível salvar a publicação.',
+          ),
         ),
       );
     } catch (e) {
-      debugPrint('Erro ao cadastrar publicação: $e');
+      debugPrint('Erro ao salvar publicação: $e');
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ocorreu um erro ao cadastrar a publicação.'),
+        SnackBar(
+          content: Text(
+            _modoEdicao
+                ? 'Ocorreu um erro ao atualizar a publicação.'
+                : 'Ocorreu um erro ao cadastrar a publicação.',
+          ),
         ),
       );
     } finally {
@@ -387,25 +513,25 @@ class _CadastroPublicacaoScreenState
         automaticallyImplyLeading: false,
         toolbarHeight: 100,
         titleSpacing: 20,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Doar um item',
-              style: TextStyle(
+              _modoEdicao ? 'Editar publicação' : 'Doar um item',
+              style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
               ),
             ),
-
             const SizedBox(height: 4),
-
             SizedBox(
               width: double.infinity,
               child: Text(
-                'Quanto mais detalhes, mais fácil de encontrar quem precisa.',
-                style: TextStyle(
+                _modoEdicao
+                    ? 'Atualize as informações da sua publicação.'
+                    : 'Quanto mais detalhes, mais fácil de encontrar quem precisa.',
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.normal,
                   color: Color(0xFF777777),
@@ -428,7 +554,7 @@ class _CadastroPublicacaoScreenState
                 key: _imagensFieldKey,
                 initialValue: const [],
                 validator: (valor) {
-                  if (_imagensSelecionadas.isEmpty) {
+                  if (_totalImagens == 0) {
                     return 'Adicione pelo menos uma foto do item.';
                   }
 
@@ -693,7 +819,9 @@ class _CadastroPublicacaoScreenState
               const SizedBox(height: 24),
 
               Botoes(
-                _salvando ? 'Cadastrando...' : 'Cadastrar publicação',
+                _salvando
+                    ? (_modoEdicao ? 'Salvando...' : 'Cadastrando...')
+                    : (_modoEdicao ? 'Salvar alterações' : 'Cadastrar publicação'),
                 onPressed: _salvando ? null : _cadastrarPublicacao,
               ),
             ],

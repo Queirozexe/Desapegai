@@ -89,6 +89,86 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   }
 
   Future<void> _registrarInteresse() async {
+    final chaveFormulario = GlobalKey<FormState>();
+
+    String? mensagemFormulario;
+
+    final mensagem = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          scrollable: true,
+          title: const Text('Enviar interesse'),
+          content: Form(
+            key: chaveFormulario,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Escreva uma mensagem para acompanhar '
+                      'seu interesse. O doador poderá ler '
+                      'quando visualizar os interessados.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.4,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  autofocus: true,
+                  minLines: 3,
+                  maxLines: 5,
+                  maxLength: 250,
+                  decoration: const InputDecoration(
+                    hintText: 'Escreva sua mensagem ao doador...',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                  onSaved: (valor) {
+                    mensagemFormulario = valor?.trim();
+                  },
+                  validator: (valor) {
+                    if (valor == null || valor.trim().isEmpty) {
+                      return 'Escreva uma mensagem para o doador.';
+                    }
+
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final formulario = chaveFormulario.currentState!;
+
+                if (formulario.validate()) {
+                  formulario.save();
+
+                  Navigator.pop(
+                    context,
+                    mensagemFormulario,
+                  );
+                }
+              },
+              child: const Text('Enviar interesse'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || mensagem == null) return;
+
     setState(() {
       _processandoInteresse = true;
     });
@@ -96,6 +176,7 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
     try {
       await _interesseControl.demonstrarInteresse(
         _obterPublicacaoId(),
+        mensagem: mensagem,
       );
 
       if (!mounted) return;
@@ -105,7 +186,7 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
         _processandoInteresse = false;
       });
 
-      _aviso('Seu interesse foi registrado com sucesso.');
+      _aviso('Seu interesse e sua mensagem foram enviados com sucesso.');
     } catch (erro) {
       if (!mounted) return;
 
