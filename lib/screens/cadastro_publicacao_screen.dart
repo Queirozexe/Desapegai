@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../services/localizacao_service.dart';
 import '../services/cloudinary_service.dart';
 import 'profile_screen.dart';
+import 'minhas_publicacoes_screen.dart';
 
 class CadastroPublicacaoScreen extends StatefulWidget {
   const CadastroPublicacaoScreen({super.key});
@@ -704,6 +705,17 @@ class _CadastroPublicacaoScreenState
         onDestinationSelected: (index) {
           if (index == 0) {
             Navigator.popUntil(context, (route) => route.isFirst);
+            return;
+          }
+
+          if (index == 1) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MinhasPublicacoesScreen(),
+              ),
+                  (route) => route.isFirst,
+            );
             return;
           }
 

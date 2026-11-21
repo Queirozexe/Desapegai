@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../model/interessado.dart';
+
 class InteresseControl {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -47,8 +49,25 @@ class InteresseControl {
     final id = _validarPublicacaoId(publicacaoId);
     final uid = _obterUidUsuarioAtual();
 
+    final perfil = await _firestore
+        .collection('usuarios')
+        .doc(uid)
+        .get();
+
+    if (!perfil.exists) {
+      throw StateError('Perfil do usuário não encontrado.');
+    }
+
+    final dadosPerfil = perfil.data();
+    final nome = dadosPerfil?['nome'];
+
+    if (nome is! String || nome.trim().isEmpty) {
+      throw StateError('Nome do usuário não encontrado no perfil.');
+    }
+
     await _colecaoInteresses(id).doc(uid).set({
       'usuarioId': uid,
+      'nomeUsuario': nome,
       'dataCriacao': FieldValue.serverTimestamp(),
     });
   }
@@ -58,5 +77,40 @@ class InteresseControl {
     final uid = _obterUidUsuarioAtual();
 
     await _colecaoInteresses(id).doc(uid).delete();
+  }
+
+  Stream<int> acompanharQuantidadeInteresses(String publicacaoId) {
+    final id = _validarPublicacaoId(publicacaoId);
+
+    if (_auth.currentUser == null) {
+      return Stream<int>.error(
+        Exception('Usuário não autenticado.'),
+      );
+    }
+
+    return _colecaoInteresses(id)
+        .snapshots()
+        .map((resultado) => resultado.size);
+  }
+
+  Stream<List<Interessado>> acompanharInteressados(
+      String publicacaoId,
+      ) {
+    final id = _validarPublicacaoId(publicacaoId);
+
+    if (_auth.currentUser == null) {
+      return Stream<List<Interessado>>.error(
+        Exception('Usuário não autenticado.'),
+      );
+    }
+
+    return _colecaoInteresses(id)
+        .orderBy('dataCriacao', descending: true)
+        .snapshots()
+        .map((resultado) {
+      return resultado.docs
+          .map((documento) => Interessado.fromMap(documento.data()))
+          .toList();
+    });
   }
 }
