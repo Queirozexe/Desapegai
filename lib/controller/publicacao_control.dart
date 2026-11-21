@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -69,6 +68,35 @@ class PublicacaoControl {
         .collection('publicacoes')
         .where('status', isEqualTo: 'ativa')
         .where('usuarioId', isNotEqualTo: usuario.uid)
+        .snapshots()
+        .map((resultado) {
+      final publicacoes = resultado.docs.map((documento) {
+        return Publicacao.fromMap(
+          documento.data(),
+          documento.id,
+        );
+      }).toList();
+
+      publicacoes.sort(
+            (a, b) => b.dataCriacao.compareTo(a.dataCriacao),
+      );
+
+      return publicacoes;
+    });
+  }
+
+  Stream<List<Publicacao>> acompanharMinhasPublicacoes() {
+    final usuario = _auth.currentUser;
+
+    if (usuario == null) {
+      return Stream<List<Publicacao>>.error(
+        Exception('Usuário não autenticado.'),
+      );
+    }
+
+    return _firestore
+        .collection('publicacoes')
+        .where('usuarioId', isEqualTo: usuario.uid)
         .snapshots()
         .map((resultado) {
       final publicacoes = resultado.docs.map((documento) {

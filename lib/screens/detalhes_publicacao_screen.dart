@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import '../model/publicacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
@@ -25,13 +26,24 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   late final InteresseControl _interesseControl;
 
   Publicacao get publicacao => widget.publicacao;
+  bool get _ehMinhaPublicacao {
+    final usuarioAtual = FirebaseAuth.instance.currentUser;
+
+    return usuarioAtual != null &&
+        usuarioAtual.uid == publicacao.usuarioId;
+  }
 
   @override
   void initState() {
     super.initState();
 
     _interesseControl = InteresseControl();
-    _carregarInteresse();
+
+    if (!_ehMinhaPublicacao) {
+      _carregarInteresse();
+    } else {
+      _carregandoInteresse = false;
+    }
   }
 
   String _obterPublicacaoId() {
@@ -538,12 +550,14 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
           color: Colors.black87,
           tooltip: 'Voltar',
         ),
-        actions: [
+        actions: _ehMinhaPublicacao
+            ? const <Widget>[]
+            : [
           IconButton(
             onPressed: () {
               _aviso(
                 'A opção de denunciar publicações será implementada '
-                'em uma próxima etapa.',
+                    'em uma próxima etapa.',
               );
             },
             icon: const Icon(Icons.flag_outlined),
@@ -558,7 +572,9 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
           children: [_construirGaleria(), _construirConteudo()],
         ),
       ),
-      bottomNavigationBar: SafeArea(
+      bottomNavigationBar: _ehMinhaPublicacao
+          ? null
+          : SafeArea(
         top: false,
         child: Container(
           color: Colors.white,

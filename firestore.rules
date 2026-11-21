@@ -108,7 +108,13 @@ service cloud.firestore {
       allow get: if request.auth != null
                  && request.auth.uid == usuarioId;
 
-      allow list: if false;
+      allow list: if request.auth != null
+                 && exists(
+                   /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                 )
+                 && get(
+                   /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                 ).data.usuarioId == request.auth.uid;
 
       allow create: if request.auth != null
                     && request.auth.uid == usuarioId
@@ -121,15 +127,28 @@ service cloud.firestore {
                     && get(
                       /databases/$(database)/documents/publicacoes/$(publicacaoId)
                     ).data.usuarioId != request.auth.uid
+                    && exists(
+                      /databases/$(database)/documents/usuarios/$(request.auth.uid)
+                    )
+                    && get(
+                      /databases/$(database)/documents/usuarios/$(request.auth.uid)
+                    ).data.nome is string
                     && request.resource.data.keys().hasOnly([
                       'usuarioId',
+                      'nomeUsuario',
                       'dataCriacao'
                     ])
                     && request.resource.data.keys().hasAll([
                       'usuarioId',
+                      'nomeUsuario',
                       'dataCriacao'
                     ])
                     && request.resource.data.usuarioId == request.auth.uid
+                    && request.resource.data.nomeUsuario is string
+                    && request.resource.data.nomeUsuario ==
+                       get(
+                         /databases/$(database)/documents/usuarios/$(request.auth.uid)
+                       ).data.nome
                     && request.resource.data.dataCriacao == request.time;
 
       allow update: if false;

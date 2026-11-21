@@ -6,6 +6,7 @@ import '../controller/sessao_control.dart';
 import '../model/usuario.dart';
 import 'edit_profile_screen.dart';
 import 'cadastro_publicacao_screen.dart';
+import 'minhas_publicacoes_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -86,7 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _aviso('Não foi possível sair. Tente novamente.');
     }
   }
-
 
   Widget _buildEstatistica({required String valor, required String descricao}) {
     return Container(
@@ -425,6 +425,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onDestinationSelected: (index) {
           if (index == 0) {
             Navigator.popUntil(context, (route) => route.isFirst);
+            return;
+          }
+
+          if (index == 1) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MinhasPublicacoesScreen(),
+              ),
+                  (route) => route.isFirst,
+            );
             return;
           }
 
