@@ -200,7 +200,11 @@ A quantidade de interesses de cada publicação é acompanhada em tempo real pel
 
 O gerenciamento dos estados permite que o doador escolha um interessado, desfaça a escolha, conclua a doação e reabra uma publicação concluída.
 
-Ao remover uma publicação, os registros de interesse associados também são excluídos do Firestore.
+Quando o doador edita uma publicação, o sistema também atualiza o título e a primeira imagem nas conversas relacionadas. Dessa forma, as informações apresentadas na tela Mensagens e no chat permanecem sincronizadas com os dados atuais da publicação.
+
+Ao remover uma publicação, o sistema realiza a limpeza dos dados relacionados. Primeiro, identifica as conversas vinculadas à publicação e exclui as mensagens de cada conversa, utilizando lotes de até 500 operações. Em seguida, exclui os documentos das conversas, os registros de interesse e, por último, o documento da publicação.
+
+A exclusão é realizada de forma sequencial. Caso alguma etapa falhe, as etapas seguintes não são executadas e a publicação não é removida, permitindo uma nova tentativa de limpeza.
 
 ### 11. Tela de interessados
 
@@ -282,6 +286,8 @@ As conversas podem ser abertas por diferentes caminhos:
 Cada conversa é individual e está vinculada a uma publicação e a um usuário interessado. Dessa forma, uma mesma publicação pode possuir conversas distintas com diferentes interessados.
 
 O sistema utiliza um identificador determinístico baseado no ID da publicação e no UID do interessado, evitando a criação de várias conversas para a mesma combinação.
+
+Quando o doador edita uma publicação, o título e a primeira imagem são atualizados nas conversas relacionadas. Assim, a listagem de mensagens e o cabeçalho do chat apresentam os dados atuais da publicação, sem alterar o histórico de mensagens.
 
 ### 13. Navegação inferior
 
@@ -410,7 +416,7 @@ Os principais campos do documento da conversa são:
 |---|---|
 | `publicacaoId` | Identificador da publicação relacionada |
 | `tituloPublicacao` | Título da publicação |
-| `imagemPublicacao` | URL da imagem da publicação, quando disponível |
+| `imagemPublicacao` | URL da primeira imagem da publicação |
 | `doadorId` | UID do usuário responsável pela publicação |
 | `doadorNome` | Nome público do doador |
 | `interessadoId` | UID do usuário que demonstrou interesse |
@@ -434,6 +440,8 @@ Os campos de cada mensagem são:
 | `dataEnvio` | Data e horário do envio, definidos pelo servidor |
 
 O `ChatControl` é responsável por criar ou recuperar conversas, acompanhar as conversas do usuário, acompanhar as mensagens e enviar novas mensagens.
+
+O `ChatControl` também sincroniza o título e a primeira imagem da publicação nos documentos das conversas quando o doador edita o item. Essa atualização é permitida pelas regras do Firestore somente ao proprietário da publicação e não modifica as mensagens já enviadas.
 
 As consultas utilizam `snapshots()`, permitindo atualizar a listagem de conversas e o conteúdo do chat conforme novos dados são registrados no Firestore.
 
@@ -478,7 +486,10 @@ A coleção `conversas` e sua subcoleção `mensagens` possuem regras específic
 - As mensagens possuem limite de 1.000 caracteres.
 - A atualização das informações da última mensagem da conversa é restrita aos campos permitidos.
 - A edição de mensagens existentes é bloqueada.
-- A exclusão de conversas e mensagens é restrita ao doador, conforme as regras definidas.
+- Os participantes podem atualizar somente os campos relacionados à última mensagem.
+- Somente o doador pode atualizar o título e a imagem da publicação nas conversas, desde que os novos valores correspondam aos dados registrados na publicação.
+- Somente o doador pode excluir os documentos das conversas e suas mensagens.
+- As atualizações das informações da publicação não permitem alterar os participantes ou os dados de identificação da conversa.
 
 ## Armazenamento de imagens
 
@@ -766,6 +777,15 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Acesso às conversas pela navegação inferior.
 - [x] Abertura da publicação relacionada pelo cabeçalho do chat.
 - [x] Exibição do botão de denúncia do doador no chat.
+- [x] Sincronização do título da publicação nas conversas após a edição.
+- [x] Sincronização da primeira imagem da publicação nas conversas após a edição.
+- [x] Preservação das mensagens existentes durante a edição da publicação.
+- [x] Continuidade do envio de mensagens após a sincronização.
+- [x] Teste de edição com múltiplas conversas relacionadas à mesma publicação.
+- [x] Exclusão das conversas relacionadas ao remover uma publicação.
+- [x] Exclusão das mensagens das conversas antes da remoção dos documentos das conversas.
+- [x] Exclusão dos registros de interesse e da publicação após a limpeza das conversas.
+- [x] Teste de remoção com múltiplos interessados e conversas.
 
 A análise estática com `flutter analyze` foi executada sem identificar erros. Permanecem 2 warnings e 26 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
 
