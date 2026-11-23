@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../model/publicacao.dart';
+import 'chat_control.dart';
 
 class PublicacaoControl {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -189,6 +190,12 @@ class PublicacaoControl {
         'imagens': imagens,
       });
     });
+
+    await ChatControl().atualizarDadosPublicacaoNasConversas(
+      publicacaoId: id,
+      tituloPublicacao: titulo.trim(),
+      imagens: imagens,
+    );
   }
 
   Future<void> removerPublicacao({
@@ -222,6 +229,10 @@ class PublicacaoControl {
       throw Exception('Você não é o dono desta publicação.');
     }
 
+    await ChatControl().removerConversasDaPublicacao(
+      publicacaoId: id,
+    );
+
     final interesses = await publicacaoRef
         .collection('interesses')
         .get();
@@ -242,6 +253,7 @@ class PublicacaoControl {
 
     await publicacaoRef.delete();
   }
+
 
   Future<void> escolherInteressado({
     required String publicacaoId,

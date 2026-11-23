@@ -201,6 +201,125 @@ class ChatControl {
     });
   }
 
+  Future<void> atualizarDadosPublicacaoNasConversas({
+    required String publicacaoId,
+    required String tituloPublicacao,
+    required List<String> imagens,
+  }) async {
+    final uid = _obterUidUsuarioAtual();
+
+    final id = _validarId(
+      publicacaoId,
+      'ID da publicação',
+    );
+
+    final titulo = tituloPublicacao.trim();
+
+    if (titulo.isEmpty) {
+      throw ArgumentError('O título da publicação é inválido.');
+    }
+
+    if (imagens.isEmpty || imagens.first.trim().isEmpty) {
+      throw ArgumentError('A imagem da publicação é inválida.');
+    }
+
+    final imagemPublicacao = imagens.first;
+
+    final resultado = await _colecaoConversas()
+        .where('participantes', arrayContains: uid)
+        .get();
+
+    final conversas = resultado.docs.where((documento) {
+      return documento.data()['publicacaoId'] == id;
+    }).toList();
+
+    for (final conversa in conversas) {
+      final dados = conversa.data();
+
+      if (dados['doadorId'] != uid) {
+        throw Exception(
+          'Você não tem permissão para atualizar esta conversa.',
+        );
+      }
+    }
+
+    for (var i = 0; i < conversas.length; i += 500) {
+      final lote = _firestore.batch();
+
+      final fim = (i + 500 < conversas.length)
+          ? i + 500
+          : conversas.length;
+
+      for (final conversa in conversas.sublist(i, fim)) {
+        final dados = conversa.data();
+
+        if (dados['tituloPublicacao'] == titulo &&
+            dados['imagemPublicacao'] == imagemPublicacao) {
+          continue;
+        }
+
+        lote.update(conversa.reference, {
+          'tituloPublicacao': titulo,
+          'imagemPublicacao': imagemPublicacao,
+        });
+      }
+
+      await lote.commit();
+    }
+  }
+
+  Future<void> removerConversasDaPublicacao({
+    required String publicacaoId,
+  }) async {
+    final uid = _obterUidUsuarioAtual();
+
+    final id = _validarId(
+      publicacaoId,
+      'ID da publicação',
+    );
+
+    final resultado = await _colecaoConversas()
+        .where('participantes', arrayContains: uid)
+        .get();
+
+    final conversas = resultado.docs.where((documento) {
+      return documento.data()['publicacaoId'] == id;
+    }).toList();
+
+    for (final documentoConversa in conversas) {
+      final dados = documentoConversa.data();
+
+      if (dados['doadorId'] != uid) {
+        throw Exception(
+          'Você não tem permissão para excluir esta conversa.',
+        );
+      }
+
+      final mensagensRef = documentoConversa.reference
+          .collection('mensagens');
+
+      while (true) {
+        final resultadoMensagens = await mensagensRef
+            .limit(500)
+            .get();
+
+        if (resultadoMensagens.docs.isEmpty) {
+          break;
+        }
+
+        final lote = _firestore.batch();
+
+        for (final mensagem in resultadoMensagens.docs) {
+          lote.delete(mensagem.reference);
+        }
+
+        await lote.commit();
+      }
+
+      await documentoConversa.reference.delete();
+    }
+  }
+
   Stream<List<Mensagem>> acompanharMensagens(
       String conversaId,
       ) {

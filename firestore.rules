@@ -380,18 +380,57 @@ service cloud.firestore {
       allow list: if request.auth != null
                     && request.auth.uid in resource.data.participantes;
 
+
       allow update: if request.auth != null
-                    && request.auth.uid in resource.data.participantes
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                      'ultimaMensagem',
-                      'ultimaMensagemRemetenteId',
-                      'dataUltimaMensagem'
-                    ])
-                    && request.resource.data.ultimaMensagem is string
-                    && request.resource.data.ultimaMensagem.size() > 0
-                    && request.resource.data.ultimaMensagem.size() <= 1000
-                    && request.resource.data.ultimaMensagemRemetenteId == request.auth.uid
-                    && request.resource.data.dataUltimaMensagem == request.time;
+                    && (
+                      (
+                        request.auth.uid in resource.data.participantes
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'ultimaMensagem',
+                          'ultimaMensagemRemetenteId',
+                          'dataUltimaMensagem'
+                        ])
+                        && request.resource.data.ultimaMensagem is string
+                        && request.resource.data.ultimaMensagem.size() > 0
+                        && request.resource.data.ultimaMensagem.size() <= 1000
+                        && request.resource.data.ultimaMensagemRemetenteId == request.auth.uid
+                        && request.resource.data.dataUltimaMensagem == request.time
+                      )
+
+                      ||
+
+                      (
+                        request.auth.uid == resource.data.doadorId
+                        && request.auth.uid in resource.data.participantes
+                        && resource.data.publicacaoId is string
+                        && exists(
+                          /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                        )
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                        ).data.usuarioId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'tituloPublicacao',
+                          'imagemPublicacao'
+                        ])
+                        && request.resource.data.tituloPublicacao is string
+                        && request.resource.data.tituloPublicacao ==
+                          get(
+                            /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                          ).data.titulo
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                        ).data.imagens is list
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                        ).data.imagens.size() > 0
+                        && request.resource.data.imagemPublicacao is string
+                        && request.resource.data.imagemPublicacao ==
+                          get(
+                            /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                          ).data.imagens[0]
+                      )
+                    );
 
       allow delete: if request.auth != null
                     && request.auth.uid == resource.data.doadorId;
