@@ -22,7 +22,9 @@ A tela **Interessados** apresenta as pessoas interessadas, incluindo nome, cidad
 
 O gerenciamento dos estados da publicação está implementado, incluindo as situações disponível, em andamento e concluída, com possibilidade de reabrir uma doação concluída.
 
-A comunicação por mensagens entre os usuários ainda está em desenvolvimento.
+A comunicação entre usuários está implementada. Cada pessoa interessada pode conversar individualmente com o doador da publicação, independentemente de ter sido escolhida para receber a doação. As conversas são armazenadas no Cloud Firestore, com envio e recebimento de mensagens em tempo real.
+
+A tela Mensagens apresenta as conversas do usuário autenticado, incluindo o nome do outro participante, a publicação relacionada e a prévia da última mensagem.
 
 ## Funcionalidades implementadas
 
@@ -170,7 +172,9 @@ Os interesses são armazenados em uma subcoleção da publicação, utilizando o
 
 O estado do interesse é recuperado do Firestore ao abrir a tela, permitindo manter a informação mesmo após sair e retornar à publicação.
 
-O botão "Conversar" ainda não possui integração com um sistema de mensagens. O botão de denúncia está presente na interface para publicações de terceiros, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
+Após demonstrar interesse, o usuário pode acessar a conversa com o doador pelo botão "Conversar". Caso a conversa já exista para aquela publicação e aquele interessado, ela é recuperada; caso contrário, é criada.
+
+O botão de denúncia da publicação está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
 
 ### 10. Tela de Minhas publicações
 
@@ -215,6 +219,9 @@ Funcionalidades implementadas:
 - Escolha de uma pessoa interessada para receber a doação.
 - Possibilidade de desfazer a escolha.
 - Conclusão da doação após a escolha do interessado.
+- Acesso à conversa individual com cada pessoa interessada.
+- Abertura de conversas existentes ou criação de novas conversas.
+- Possibilidade de conversar com qualquer interessado, independentemente de ele ter sido escolhido para receber a doação.
 
 O `InteresseControl` recupera os dados necessários do perfil do usuário e os armazena junto ao registro de interesse.
 
@@ -222,7 +229,61 @@ O doador pode consultar as informações dos interessados e gerenciar o andament
 
 A consulta da lista é permitida somente ao proprietário da publicação, conforme as regras de segurança do Cloud Firestore.
 
-### 12. Navegação inferior
+O doador pode iniciar uma conversa com cada interessado diretamente pela tela. Cada conversa está vinculada à publicação e ao usuário interessado, permitindo que diferentes pessoas conversem individualmente com o doador sobre o mesmo item.
+
+
+### 12. Tela de conversas e chat
+
+A comunicação entre doadores e interessados é realizada por meio de conversas individuais relacionadas às publicações.
+
+#### Tela de conversas
+
+A `ConversasScreen` apresenta as conversas do usuário autenticado.
+
+Funcionalidades implementadas:
+
+- Listagem das conversas associadas ao usuário.
+- Atualização em tempo real utilizando `snapshots()`.
+- Exibição das iniciais e do nome do outro participante.
+- Exibição do título da publicação relacionada à conversa.
+- Prévia da última mensagem enviada.
+- Identificação de mensagens enviadas pelo próprio usuário.
+- Exibição da data ou horário da última mensagem.
+- Abertura da conversa ao selecionar um card.
+- Exibição de mensagens para situações de carregamento, erro ou ausência de conversas.
+
+#### Tela de chat
+
+A `ChatScreen` permite a troca de mensagens entre o doador e uma pessoa interessada.
+
+Funcionalidades implementadas:
+
+- Envio e recebimento de mensagens.
+- Atualização das mensagens em tempo real pelo Cloud Firestore.
+- Identificação visual das mensagens enviadas e recebidas.
+- Exibição do horário de envio.
+- Validação de mensagens vazias.
+- Limite de até 1.000 caracteres por mensagem.
+- Indicador de envio.
+- Orientação de segurança durante a conversa.
+- Acesso à publicação relacionada pelo título exibido no cabeçalho.
+- Botão visual para denunciar o doador, disponível para o interessado.
+
+O botão de denúncia do doador está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda não foi implementado.
+
+#### Acesso às conversas
+
+As conversas podem ser abertas por diferentes caminhos:
+
+- Pela tela de detalhes da publicação, após o registro de interesse.
+- Pela tela de interessados, a partir do card de cada interessado.
+- Pela opção Mensagens da navegação inferior.
+
+Cada conversa é individual e está vinculada a uma publicação e a um usuário interessado. Dessa forma, uma mesma publicação pode possuir conversas distintas com diferentes interessados.
+
+O sistema utiliza um identificador determinístico baseado no ID da publicação e no UID do interessado, evitando a criação de várias conversas para a mesma combinação.
+
+### 13. Navegação inferior
 
 A aplicação apresenta cinco opções na navegação inferior:
 
@@ -232,9 +293,11 @@ A aplicação apresenta cinco opções na navegação inferior:
 - Mensagens.
 - Perfil.
 
-As telas de Início, Minhas publicações, Doar e Perfil estão implementadas e integradas à navegação.
+As cinco opções estão implementadas e integradas à navegação.
 
-A opção Mensagens ainda apresenta uma indicação de funcionalidade em desenvolvimento.
+A opção Mensagens abre a `ConversasScreen`, que apresenta as conversas do usuário autenticado. Ao selecionar uma conversa, o aplicativo abre a `ChatScreen` correspondente.
+
+A navegação também permite retornar às demais áreas do aplicativo sem perder a organização das telas.
 
 ## Autenticação e armazenamento
 
@@ -246,7 +309,7 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações e dos interesses demonstrados pelos usuários.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, das conversas e das mensagens trocadas entre doadores e interessados.
 
 #### Coleção `usuarios`
 
@@ -326,9 +389,57 @@ A consulta combinada utilizada na Home requer um índice composto configurado no
 
 O campo `nomeDoador` armazena o nome público do usuário responsável pela publicação. Esse valor é obtido do perfil do usuário autenticado durante o cadastro e registrado diretamente no documento da publicação.
 
+#### Coleção `conversas`
+
+Cada conversa é armazenada como um documento na coleção `conversas`.
+
+O identificador do documento é formado pela combinação do ID da publicação com o UID do interessado, garantindo uma conversa individual para cada pessoa interessada em determinada publicação.
+
+A estrutura é organizada da seguinte forma:
+
+```text
+conversas/
+  ID_DA_PUBLICACAO_UID_DO_INTERESSADO/
+    mensagens/
+      ID_DA_MENSAGEM/
+```
+
+Os principais campos do documento da conversa são:
+
+| Campo | Descrição |
+|---|---|
+| `publicacaoId` | Identificador da publicação relacionada |
+| `tituloPublicacao` | Título da publicação |
+| `imagemPublicacao` | URL da imagem da publicação, quando disponível |
+| `doadorId` | UID do usuário responsável pela publicação |
+| `doadorNome` | Nome público do doador |
+| `interessadoId` | UID do usuário que demonstrou interesse |
+| `interessadoNome` | Nome público do interessado |
+| `participantes` | Lista de UIDs autorizados a participar da conversa |
+| `dataCriacao` | Data e horário de criação da conversa |
+| `ultimaMensagem` | Conteúdo da mensagem mais recente |
+| `ultimaMensagemRemetenteId` | UID de quem enviou a última mensagem |
+| `dataUltimaMensagem` | Data e horário da última mensagem |
+
+#### Subcoleção `mensagens`
+
+Cada conversa possui uma subcoleção `mensagens`, responsável por armazenar as mensagens trocadas entre os participantes.
+
+Os campos de cada mensagem são:
+
+| Campo | Descrição |
+|---|---|
+| `remetenteId` | UID do usuário que enviou a mensagem |
+| `texto` | Conteúdo da mensagem, limitado a 1.000 caracteres |
+| `dataEnvio` | Data e horário do envio, definidos pelo servidor |
+
+O `ChatControl` é responsável por criar ou recuperar conversas, acompanhar as conversas do usuário, acompanhar as mensagens e enviar novas mensagens.
+
+As consultas utilizam `snapshots()`, permitindo atualizar a listagem de conversas e o conteúdo do chat conforme novos dados são registrados no Firestore.
+
 ### Regras de segurança
 
-O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes` e à subcoleção `interesses`.
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `conversas` e às subcoleções `interesses` e `mensagens`.
 
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
@@ -341,7 +452,8 @@ Na coleção `publicacoes`, as regras controlam a criação, leitura, atualizaç
 - Validação dos campos permitidos.
 - Restrição do status inicial para `ativa`.
 - Limite de até três imagens por publicação.
-- Permissão de leitura para publicações ativas, para o próprio autor ou para o usuário escolhido, conforme as condições definidas nas regras.
+- Permissão de leitura de documentos individuais para publicações ativas, para o próprio autor, para o usuário escolhido ou para usuários que possuam um registro de interesse na publicação.
+- As consultas de listagem seguem critérios específicos definidos nas regras de segurança.
 - Restrição das alterações aos campos permitidos.
 
 A subcoleção `interesses` possui regras específicas:
@@ -355,6 +467,18 @@ A subcoleção `interesses` possui regras específicas:
 - O usuário pode cancelar somente o próprio interesse.
 - Validação da cidade conforme o perfil do usuário.
 - Limitação da mensagem a até 250 caracteres.
+
+A coleção `conversas` e sua subcoleção `mensagens` possuem regras específicas:
+
+- Somente os participantes podem consultar e listar uma conversa.
+- A criação de conversas exige uma publicação válida e um registro de interesse correspondente.
+- O identificador da conversa deve corresponder à publicação e ao interessado.
+- Somente os participantes podem enviar mensagens.
+- O UID do remetente deve corresponder ao usuário autenticado.
+- As mensagens possuem limite de 1.000 caracteres.
+- A atualização das informações da última mensagem da conversa é restrita aos campos permitidos.
+- A edição de mensagens existentes é bloqueada.
+- A exclusão de conversas e mensagens é restrita ao doador, conforme as regras definidas.
 
 ## Armazenamento de imagens
 
@@ -405,11 +529,14 @@ desapegai/
 │   │   ├── sessao_control.dart
 │   │   ├── usuario_control.dart
 │   │   ├── interesse_control.dart
-│   │   └── publicacao_control.dart
+│   │   ├── publicacao_control.dart
+│   │   └── chat_control.dart
 │   ├── model/
 │   │   ├── usuario.dart
 │   │   ├── publicacao.dart
-│   │   └── interessado.dart
+│   │   ├── interessado.dart
+│   │   ├── conversa.dart
+│   │   └── mensagem.dart
 │   ├── screens/
 │   │   ├── auth_gate.dart
 │   │   ├── home_screen.dart
@@ -421,7 +548,9 @@ desapegai/
 │   │   ├── cadastro_publicacao_screen.dart
 │   │   ├── detalhes_publicacao_screen.dart
 │   │   ├── minhas_publicacoes_screen.dart
-│   │   └── interessados_screen.dart
+│   │   ├── interessados_screen.dart
+│   │   ├── conversas_screen.dart
+│   │   └── chat_screen.dart
 │   ├── services/
 │   │   ├── cloudinary_service.dart
 │   │   └── localizacao_service.dart
@@ -456,7 +585,7 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Opção Início na navegação inferior | `HomeScreen` |
 | Opção Minhas na navegação inferior | `MinhasPublicacoesScreen` |
 | Opção Doar na navegação inferior | `CadastroPublicacaoScreen` |
-| Opção Mensagens na navegação inferior | Funcionalidade em desenvolvimento |
+| Opção Mensagens na navegação inferior | `ConversasScreen` |
 | Opção Perfil na navegação inferior | `ProfileScreen` |
 | Botão Editar perfil | `EditProfileScreen` |
 | Seleção de publicação na Home ou em Minhas | `DetalhesPublicacaoScreen` |
@@ -470,7 +599,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações e dos interesses.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, das conversas e das mensagens.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -626,14 +755,24 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Reabertura de uma doação concluída.
 - [x] Edição de publicações existentes.
 - [x] Remoção de publicações e dos registros de interesse associados.
+- [x] Criação de conversas individuais entre doadores e interessados.
+- [x] Recuperação de conversas existentes sem duplicação.
+- [x] Abertura de conversas pela tela de detalhes da publicação.
+- [x] Abertura de conversas pela tela de interessados.
+- [x] Envio e recebimento de mensagens utilizando contas diferentes.
+- [x] Persistência das mensagens no Cloud Firestore.
+- [x] Exibição das mensagens enviadas e recebidas.
+- [x] Atualização da última mensagem na listagem de conversas.
+- [x] Acesso às conversas pela navegação inferior.
+- [x] Abertura da publicação relacionada pelo cabeçalho do chat.
+- [x] Exibição do botão de denúncia do doador no chat.
 
-A análise estática com `flutter analyze` foi executada sem identificar erros. Permanecem 2 warnings e 24 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
+A análise estática com `flutter analyze` foi executada sem identificar erros. Permanecem 2 warnings e 26 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
 
 ## Funcionalidades pendentes
 
 - [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
-- [ ] Implementação do fluxo de conversas entre usuários.
 - [ ] Notificações relacionadas aos interesses e às etapas da doação.
 - [ ] Implementação de filtro de distância com cálculo geográfico real.
 - [ ] Histórico de doações.
@@ -645,12 +784,6 @@ A análise estática com `flutter analyze` foi executada sem identificar erros. 
 - [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
 
 ## Próximas etapas
-
-### Comunicação entre usuários
-
-- Desenvolver o sistema de conversas entre doadores e interessados.
-- Implementar o envio e o recebimento de mensagens.
-- Permitir o acompanhamento das conversas relacionadas às doações.
 
 ### Funcionalidades posteriores
 
