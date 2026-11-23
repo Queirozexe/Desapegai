@@ -8,6 +8,7 @@ import 'edit_profile_screen.dart';
 import 'cadastro_publicacao_screen.dart';
 import 'minhas_publicacoes_screen.dart';
 import 'conversas_screen.dart';
+import 'historico_doacoes_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -76,9 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      Navigator.of(context).popUntil(
-            (route) => route.isFirst,
-      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e, stackTrace) {
       debugPrint('Erro ao encerrar sessão: $e');
       debugPrintStack(stackTrace: stackTrace);
@@ -353,7 +352,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 icone: Icons.history,
                                 titulo: 'Histórico de doações',
                                 onTap: () {
-                                  _aviso('O histórico de doações será implementado em uma próxima etapa.');
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) =>
+                                              const HistoricoDoacoesScreen(),
+                                    ),
+                                  );
                                 },
                               ),
 
@@ -363,7 +369,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 icone: Icons.help_outline,
                                 titulo: 'Ajuda e segurança',
                                 onTap: () {
-                                  _aviso('A área de ajuda e segurança será implementada em uma próxima etapa.');
+                                  _aviso(
+                                    'A área de ajuda e segurança será implementada em uma próxima etapa.',
+                                  );
                                 },
                               ),
 
@@ -374,7 +382,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 titulo: 'Painel administrativo',
                                 etiqueta: 'Admin',
                                 onTap: () {
-                                  _aviso('O painel administrativo ainda não está disponível.');
+                                  _aviso(
+                                    'O painel administrativo ainda não está disponível.',
+                                  );
                                 },
                               ),
                             ],
@@ -400,8 +410,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
                             'Suas informações são utilizadas exclusivamente para '
-                                'o funcionamento do Desapegaí. Seus dados são protegidos '
-                                'e não são compartilhados sem sua autorização.',
+                            'o funcionamento do Desapegaí. Seus dados são protegidos '
+                            'e não são compartilhados sem sua autorização.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11,
@@ -435,7 +445,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               MaterialPageRoute(
                 builder: (context) => const MinhasPublicacoesScreen(),
               ),
-                  (route) => route.isFirst,
+              (route) => route.isFirst,
             );
             return;
           }
@@ -446,7 +456,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               MaterialPageRoute(
                 builder: (context) => const CadastroPublicacaoScreen(),
               ),
-                  (route) => route.isFirst,
+              (route) => route.isFirst,
             );
             return;
           }
@@ -454,10 +464,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (index == 3) {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ConversasScreen(),
-              ),
-                  (route) => route.isFirst,
+              MaterialPageRoute(builder: (context) => const ConversasScreen()),
+              (route) => route.isFirst,
             );
             return;
           }
