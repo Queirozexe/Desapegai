@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../controller/interesse_control.dart';
 import '../controller/publicacao_control.dart';
+import '../controller/chat_control.dart';
 import '../model/interessado.dart';
 import '../model/publicacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
+
+import 'chat_screen.dart';
 
 class InteressadosScreen extends StatefulWidget {
   final Publicacao publicacao;
@@ -24,7 +27,9 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
   late final Stream<List<Interessado>> _interessadosStream;
 
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
+  final ChatControl _chatControl = ChatControl();
 
+  String? _usuarioAbrindoConversaId;
   String? _usuarioEscolhidoId;
   bool _processandoEscolha = false;
   bool _doacaoConcluida = false;
@@ -50,6 +55,72 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
     }
   }
 
+  Future<void> _abrirConversa(Interessado interessado) async {
+    final publicacaoId = widget.publicacao.id;
+
+    if (publicacaoId == null ||
+        publicacaoId.trim().isEmpty ||
+        _usuarioAbrindoConversaId != null ||
+        _processandoEscolha) {
+      return;
+    }
+
+    setState(() {
+      _usuarioAbrindoConversaId = interessado.usuarioId;
+    });
+
+    try {
+      final conversa = await _chatControl.criarOuObterConversa(
+        publicacaoId: publicacaoId,
+        interessadoId: interessado.usuarioId,
+      );
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            conversa: conversa,
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível abrir a conversa. Tente novamente.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _usuarioAbrindoConversaId = null;
+        });
+      }
+    }
+  }
+
+  Widget _construirBotaoConversa(Interessado interessado) {
+    final abrindo =
+        _usuarioAbrindoConversaId == interessado.usuarioId;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: Botoes(
+        abrindo ? 'Abrindo...' : 'Conversar',
+        onPressed: _processandoEscolha ||
+            _usuarioAbrindoConversaId != null
+            ? null
+            : () => _abrirConversa(interessado),
+      ),
+    );
+  }
+
   Future<void> _escolherInteressado(Interessado interessado) async {
     final publicacaoId = widget.publicacao.id;
 
@@ -59,6 +130,10 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
           content: Text('Identificador da publicação inválido.'),
         ),
       );
+      return;
+    }
+
+    if (_usuarioAbrindoConversaId != null || _processandoEscolha) {
       return;
     }
 
@@ -112,6 +187,10 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
       return;
     }
 
+    if (_usuarioAbrindoConversaId != null || _processandoEscolha) {
+      return;
+    }
+
     setState(() {
       _processandoEscolha = true;
     });
@@ -156,6 +235,10 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
     final publicacaoId = widget.publicacao.id;
 
     if (publicacaoId == null || publicacaoId.trim().isEmpty) {
+      return;
+    }
+
+    if (_usuarioAbrindoConversaId != null || _processandoEscolha) {
       return;
     }
 
@@ -480,23 +563,19 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
 
             if (!_doacaoConcluida) ...[
               const SizedBox(height: 10),
-
               Row(
                 children: [
                   Expanded(
                     child: SizedBox(
                       height: 54,
                       child: Botoes(
-                        'Conversar',
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'A funcionalidade de conversa ainda não está disponível.',
-                              ),
-                            ),
-                          );
-                        },
+                        _usuarioAbrindoConversaId == interessado.usuarioId
+                            ? 'Abrindo...'
+                            : 'Conversar',
+                        onPressed: _processandoEscolha ||
+                            _usuarioAbrindoConversaId != null
+                            ? null
+                            : () => _abrirConversa(interessado),
                       ),
                     ),
                   ),
@@ -505,7 +584,8 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
                     child: SizedBox(
                       height: 54,
                       child: OutlinedButton(
-                        onPressed: _processandoEscolha
+                        onPressed: _processandoEscolha ||
+                            _usuarioAbrindoConversaId != null
                             ? null
                             : _marcarDoacaoConcluida,
                         style: OutlinedButton.styleFrom(
@@ -538,6 +618,9 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
                   ),
                 ],
               ),
+            ] else ...[
+              const SizedBox(height: 10),
+              _construirBotaoConversa(interessado),
             ],
           ] else if (podeEscolher) ...[
             SizedBox(
@@ -565,10 +648,17 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
                 ),
                 child: Botoes(
                   'Escolher para a doação',
-                  onPressed: () => _escolherInteressado(interessado),
+                  onPressed: _processandoEscolha ||
+                      _usuarioAbrindoConversaId != null
+                      ? null
+                      : () => _escolherInteressado(interessado),
                 ),
               ),
             ),
+
+            const SizedBox(height: 10),
+
+            _construirBotaoConversa(interessado),
           ] else if (aguardando) ...[
             const Text(
               'A doação seguirá com outra pessoa.',
@@ -577,6 +667,10 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
                 fontSize: 13,
               ),
             ),
+
+            const SizedBox(height: 10),
+
+            _construirBotaoConversa(interessado),
           ],
         ],
       ),
@@ -703,7 +797,8 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
                 _usuarioEscolhidoId != null &&
                 !_doacaoConcluida)
               OutlinedButton(
-                onPressed: _processandoEscolha
+                onPressed: _processandoEscolha ||
+                    _usuarioAbrindoConversaId != null
                     ? null
                     : _desfazerEscolha,
                 style: OutlinedButton.styleFrom(

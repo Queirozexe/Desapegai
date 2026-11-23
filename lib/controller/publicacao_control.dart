@@ -40,6 +40,31 @@ class PublicacaoControl {
     return documento.id;
   }
 
+  Future<Publicacao> buscarPublicacaoPorId(String publicacaoId) async {
+    if (_auth.currentUser == null) {
+      throw Exception('Usuário não autenticado.');
+    }
+
+    final id = publicacaoId.trim();
+
+    if (id.isEmpty) {
+      throw Exception('Identificador da publicação inválido.');
+    }
+
+    final documento = await _firestore
+        .collection('publicacoes')
+        .doc(id)
+        .get();
+
+    final dados = documento.data();
+
+    if (!documento.exists || dados == null) {
+      throw Exception('Publicação não encontrada.');
+    }
+
+    return Publicacao.fromMap(dados, documento.id);
+  }
+
   Future<List<Publicacao>> buscarPublicacoes() async {
     final resultado = await _firestore
         .collection('publicacoes')

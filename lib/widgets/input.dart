@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class Input extends StatelessWidget {
@@ -10,6 +9,11 @@ class Input extends StatelessWidget {
   final TextInputType? keyboardType;
   final bool labelExterno;
   final bool expands;
+  final int? maxLength;
+  final bool semRotulo;
+  final bool mostrarContador;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
 
   const Input(
       this.rotulo,
@@ -21,6 +25,11 @@ class Input extends StatelessWidget {
         this.keyboardType,
         this.labelExterno = false,
         this.expands = false,
+        this.maxLength,
+        this.semRotulo = false,
+        this.mostrarContador = true,
+        this.textInputAction,
+        this.onFieldSubmitted,
       });
 
   @override
@@ -45,16 +54,19 @@ class Input extends StatelessWidget {
           maxLines: maxLines,
           keyboardType: keyboardType,
           expands: expands,
+          maxLength: maxLength,
+          textInputAction: textInputAction,
+          onFieldSubmitted: onFieldSubmitted,
           style: const TextStyle(
             color: Colors.black,
-            backgroundColor: Colors.white70,
           ),
           decoration: InputDecoration(
-            labelText: labelExterno ? null : rotulo,
+            labelText: labelExterno || semRotulo ? null : rotulo,
             hintText: label,
             hintStyle: const TextStyle(
               color: Color(0xFF9E9E9E),
             ),
+            counterText: mostrarContador ? null : '',
           ),
         ),
       ],

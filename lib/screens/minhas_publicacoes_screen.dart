@@ -10,6 +10,7 @@ import 'cadastro_publicacao_screen.dart';
 import 'detalhes_publicacao_screen.dart';
 import 'profile_screen.dart';
 import 'interessados_screen.dart';
+import 'conversas_screen.dart';
 
 enum _FiltroMinhasPublicacoes {
   disponiveis,
@@ -705,6 +706,17 @@ class _MinhasPublicacoesScreenState
               context,
               MaterialPageRoute(
                 builder: (context) => const CadastroPublicacaoScreen(),
+              ),
+                  (route) => route.isFirst,
+            );
+            return;
+          }
+
+          if (index == 3) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ConversasScreen(),
               ),
                   (route) => route.isFirst,
             );
