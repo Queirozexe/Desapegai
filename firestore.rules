@@ -515,5 +515,157 @@ service cloud.firestore {
                       ).data.doadorId;
       }
     }
+
+    match /denuncias/{denunciaId} {
+          allow create: if request.auth != null
+                      && request.resource.data.keys().hasOnly([
+                        'denuncianteId',
+                        'denunciadoId',
+                        'tipo',
+                        'publicacaoId',
+                        'tituloPublicacao',
+                        'conversaId',
+                        'motivo',
+                        'descricao',
+                        'dataCriacao',
+                        'status'
+                      ])
+                      && request.resource.data.keys().hasAll([
+                        'denuncianteId',
+                        'denunciadoId',
+                        'tipo',
+                        'publicacaoId',
+                        'tituloPublicacao',
+                        'conversaId',
+                        'motivo',
+                        'descricao',
+                        'dataCriacao',
+                        'status'
+                      ])
+                      && request.resource.data.denuncianteId == request.auth.uid
+                      && request.resource.data.denunciadoId is string
+                      && request.resource.data.denunciadoId != request.auth.uid
+                      && request.resource.data.publicacaoId is string
+                      && request.resource.data.publicacaoId.size() > 0
+                      && request.resource.data.tituloPublicacao is string
+                      && request.resource.data.tituloPublicacao.size() > 0
+                      && request.resource.data.motivo is string
+                      && request.resource.data.descricao is string
+                      && request.resource.data.descricao.size() <= 500
+                      && request.resource.data.dataCriacao == request.time
+                      && request.resource.data.status == 'pendente'
+                      && (
+                        (
+                          request.resource.data.tipo == 'publicacao'
+                          && request.resource.data.conversaId == null
+                          && request.resource.data.motivo in [
+                            'Item proibido ou perigoso',
+                            'Cobrança de valores ou tentativa de venda',
+                            'Conduta inadequada ou ofensiva',
+                            'Informações falsas ou fotos que não correspondem',
+                            'Spam ou conteúdo repetido',
+                            'Outro'
+                          ]
+                          && exists(
+                            /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                          )
+                          && get(
+                            /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                          ).data.usuarioId == request.resource.data.denunciadoId
+                          && get(
+                            /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                          ).data.titulo == request.resource.data.tituloPublicacao
+                          && (
+                            get(
+                              /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                            ).data.status == 'ativa'
+                            || (
+                              get(
+                                /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                              ).data.keys().hasAny(['usuarioEscolhidoId'])
+                              && get(
+                                /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                              ).data.usuarioEscolhidoId == request.auth.uid
+                            )
+                            || exists(
+                              /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)/interesses/$(request.auth.uid)
+                            )
+                          )
+                        )
+                        ||
+                        (
+                          request.resource.data.tipo == 'usuario'
+                          && request.resource.data.conversaId is string
+                          && request.resource.data.motivo in [
+                            'Item proibido ou perigoso',
+                            'Cobrança de valores ou tentativa de venda',
+                            'Conduta inadequada ou ofensiva',
+                            'Informações falsas ou fotos que não correspondem',
+                            'Spam ou conteúdo repetido',
+                            'Outro'
+                          ]
+                          && exists(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          )
+                          && get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.doadorId is string
+                          && get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.interessadoId is string
+                          && get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.participantes is list
+                          && get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.participantes.size() == 2
+                          && get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.doadorId != get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.interessadoId
+                          && request.auth.uid in get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.participantes
+                          && get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.doadorId in get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.participantes
+                          && get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.interessadoId in get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.participantes
+                          && (
+                            (
+                              request.auth.uid == get(
+                                /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                              ).data.doadorId
+                              && request.resource.data.denunciadoId == get(
+                                /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                              ).data.interessadoId
+                            )
+                            ||
+                            (
+                              request.auth.uid == get(
+                                /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                              ).data.interessadoId
+                              && request.resource.data.denunciadoId == get(
+                                /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                              ).data.doadorId
+                            )
+                          )
+                          && request.resource.data.publicacaoId == get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.publicacaoId
+                          && request.resource.data.tituloPublicacao == get(
+                            /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+                          ).data.tituloPublicacao
+                        )
+                      );
+
+          allow read, update, delete: if false;
+    }
   }
 }
