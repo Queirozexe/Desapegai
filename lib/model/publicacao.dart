@@ -13,7 +13,10 @@ class Publicacao {
   final String status;
   final List<String> imagens;
   final String? usuarioEscolhidoId;
+  final String? usuarioEscolhidoNome;
+  final String? usuarioEscolhidoCidade;
   final DateTime? dataConclusao;
+  final String? doacaoAtualId;
 
   Publicacao({
     this.id,
@@ -28,7 +31,10 @@ class Publicacao {
     this.status = 'ativa',
     this.imagens = const [],
     this.usuarioEscolhidoId,
+    this.usuarioEscolhidoNome,
+    this.usuarioEscolhidoCidade,
     this.dataConclusao,
+    this.doacaoAtualId,
   });
 
   Map<String, dynamic> toMap() {
@@ -49,17 +55,26 @@ class Publicacao {
       dados['usuarioEscolhidoId'] = usuarioEscolhidoId!;
     }
 
+    if (usuarioEscolhidoNome != null) {
+      dados['usuarioEscolhidoNome'] = usuarioEscolhidoNome!;
+    }
+
+    if (usuarioEscolhidoCidade != null) {
+      dados['usuarioEscolhidoCidade'] = usuarioEscolhidoCidade!;
+    }
+
     if (dataConclusao != null) {
       dados['dataConclusao'] = dataConclusao!;
+    }
+
+    if (doacaoAtualId != null) {
+      dados['doacaoAtualId'] = doacaoAtualId!;
     }
 
     return dados;
   }
 
-  factory Publicacao.fromMap(
-      Map<String, dynamic> map,
-      String id,
-      ) {
+  factory Publicacao.fromMap(Map<String, dynamic> map, String id) {
     return Publicacao(
       id: id,
       usuarioId: map['usuarioId'] as String,
@@ -73,9 +88,13 @@ class Publicacao {
       status: map['status'] as String? ?? 'ativa',
       imagens: List<String>.from(map['imagens'] ?? []),
       usuarioEscolhidoId: map['usuarioEscolhidoId'] as String?,
-      dataConclusao: map['dataConclusao'] is Timestamp
-          ? (map['dataConclusao'] as Timestamp).toDate()
-          : null,
+      usuarioEscolhidoNome: map['usuarioEscolhidoNome'] as String?,
+      usuarioEscolhidoCidade: map['usuarioEscolhidoCidade'] as String?,
+      dataConclusao:
+          map['dataConclusao'] is Timestamp
+              ? (map['dataConclusao'] as Timestamp).toDate()
+              : null,
+      doacaoAtualId: map['doacaoAtualId'] as String?,
     );
   }
 }

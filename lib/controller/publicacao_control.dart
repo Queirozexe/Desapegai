@@ -15,18 +15,14 @@ class PublicacaoControl {
       throw Exception('Usuário não autenticado.');
     }
 
-    final documentoUsuario = await _firestore
-        .collection('usuarios')
-        .doc(usuario.uid)
-        .get();
+    final documentoUsuario =
+        await _firestore.collection('usuarios').doc(usuario.uid).get();
 
     final dadosUsuario = documentoUsuario.data();
     final nomeDoador = dadosUsuario?['nome'];
 
     if (nomeDoador is! String || nomeDoador.trim().isEmpty) {
-      throw Exception(
-        'Não foi possível localizar o nome do doador no perfil.',
-      );
+      throw Exception('Não foi possível localizar o nome do doador no perfil.');
     }
 
     final dados = publicacao.toMap();
@@ -34,9 +30,7 @@ class PublicacaoControl {
     dados['usuarioId'] = usuario.uid;
     dados['nomeDoador'] = nomeDoador.trim();
 
-    final documento = await _firestore
-        .collection('publicacoes')
-        .add(dados);
+    final documento = await _firestore.collection('publicacoes').add(dados);
 
     return documento.id;
   }
@@ -52,10 +46,7 @@ class PublicacaoControl {
       throw Exception('Identificador da publicação inválido.');
     }
 
-    final documento = await _firestore
-        .collection('publicacoes')
-        .doc(id)
-        .get();
+    final documento = await _firestore.collection('publicacoes').doc(id).get();
 
     final dados = documento.data();
 
@@ -67,16 +58,14 @@ class PublicacaoControl {
   }
 
   Future<List<Publicacao>> buscarPublicacoes() async {
-    final resultado = await _firestore
-        .collection('publicacoes')
-        .where('status', isEqualTo: 'ativa')
-        .get();
+    final resultado =
+        await _firestore
+            .collection('publicacoes')
+            .where('status', isEqualTo: 'ativa')
+            .get();
 
     return resultado.docs.map((documento) {
-      return Publicacao.fromMap(
-        documento.data(),
-        documento.id,
-      );
+      return Publicacao.fromMap(documento.data(), documento.id);
     }).toList();
   }
 
@@ -95,19 +84,15 @@ class PublicacaoControl {
         .where('usuarioId', isNotEqualTo: usuario.uid)
         .snapshots()
         .map((resultado) {
-      final publicacoes = resultado.docs.map((documento) {
-        return Publicacao.fromMap(
-          documento.data(),
-          documento.id,
-        );
-      }).toList();
+          final publicacoes =
+              resultado.docs.map((documento) {
+                return Publicacao.fromMap(documento.data(), documento.id);
+              }).toList();
 
-      publicacoes.sort(
-            (a, b) => b.dataCriacao.compareTo(a.dataCriacao),
-      );
+          publicacoes.sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
 
-      return publicacoes;
-    });
+          return publicacoes;
+        });
   }
 
   Stream<List<Publicacao>> acompanharMinhasPublicacoes() {
@@ -124,19 +109,15 @@ class PublicacaoControl {
         .where('usuarioId', isEqualTo: usuario.uid)
         .snapshots()
         .map((resultado) {
-      final publicacoes = resultado.docs.map((documento) {
-        return Publicacao.fromMap(
-          documento.data(),
-          documento.id,
-        );
-      }).toList();
+          final publicacoes =
+              resultado.docs.map((documento) {
+                return Publicacao.fromMap(documento.data(), documento.id);
+              }).toList();
 
-      publicacoes.sort(
-            (a, b) => b.dataCriacao.compareTo(a.dataCriacao),
-      );
+          publicacoes.sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
 
-      return publicacoes;
-    });
+          return publicacoes;
+        });
   }
 
   Future<void> atualizarPublicacao({
@@ -164,9 +145,7 @@ class PublicacaoControl {
       throw Exception('A publicação deve possuir entre 1 e 3 imagens.');
     }
 
-    final publicacaoRef = _firestore
-        .collection('publicacoes')
-        .doc(id);
+    final publicacaoRef = _firestore.collection('publicacoes').doc(id);
 
     await _firestore.runTransaction((transacao) async {
       final documento = await transacao.get(publicacaoRef);
@@ -198,9 +177,7 @@ class PublicacaoControl {
     );
   }
 
-  Future<void> removerPublicacao({
-    required String publicacaoId,
-  }) async {
+  Future<void> removerPublicacao({required String publicacaoId}) async {
     final usuario = _auth.currentUser;
 
     if (usuario == null) {
@@ -213,9 +190,7 @@ class PublicacaoControl {
       throw Exception('Identificador da publicação inválido.');
     }
 
-    final publicacaoRef = _firestore
-        .collection('publicacoes')
-        .doc(id);
+    final publicacaoRef = _firestore.collection('publicacoes').doc(id);
 
     final documento = await publicacaoRef.get();
 
@@ -229,20 +204,15 @@ class PublicacaoControl {
       throw Exception('Você não é o dono desta publicação.');
     }
 
-    await ChatControl().removerConversasDaPublicacao(
-      publicacaoId: id,
-    );
+    await ChatControl().removerConversasDaPublicacao(publicacaoId: id);
 
-    final interesses = await publicacaoRef
-        .collection('interesses')
-        .get();
+    final interesses = await publicacaoRef.collection('interesses').get();
 
     for (var i = 0; i < interesses.docs.length; i += 500) {
       final lote = _firestore.batch();
 
-      final fim = (i + 500 < interesses.docs.length)
-          ? i + 500
-          : interesses.docs.length;
+      final fim =
+          (i + 500 < interesses.docs.length) ? i + 500 : interesses.docs.length;
 
       for (final interesse in interesses.docs.sublist(i, fim)) {
         lote.delete(interesse.reference);
@@ -253,7 +223,6 @@ class PublicacaoControl {
 
     await publicacaoRef.delete();
   }
-
 
   Future<void> escolherInteressado({
     required String publicacaoId,
@@ -285,8 +254,7 @@ class PublicacaoControl {
         .doc(idUsuarioEscolhido);
 
     await _firestore.runTransaction((transacao) async {
-      final documentoPublicacao =
-      await transacao.get(publicacaoRef);
+      final documentoPublicacao = await transacao.get(publicacaoRef);
 
       if (!documentoPublicacao.exists) {
         throw Exception('Publicação não encontrada.');
@@ -306,8 +274,7 @@ class PublicacaoControl {
         throw Exception('Já existe uma pessoa escolhida.');
       }
 
-      final documentoInteresse =
-      await transacao.get(interesseRef);
+      final documentoInteresse = await transacao.get(interesseRef);
 
       if (!documentoInteresse.exists) {
         throw Exception('Esta pessoa não demonstrou interesse.');
@@ -319,9 +286,22 @@ class PublicacaoControl {
         throw Exception('Registro de interesse inválido.');
       }
 
+      final nomeBeneficiario = dadosInteresse['nomeUsuario'];
+      final cidadeBeneficiario = dadosInteresse['cidade'];
+
+      if (nomeBeneficiario is! String || nomeBeneficiario.trim().isEmpty) {
+        throw Exception('Nome do beneficiário inválido.');
+      }
+
+      if (cidadeBeneficiario is! String || cidadeBeneficiario.trim().isEmpty) {
+        throw Exception('Cidade do beneficiário inválida.');
+      }
+
       transacao.update(publicacaoRef, {
         'status': 'em_andamento',
         'usuarioEscolhidoId': idUsuarioEscolhido,
+        'usuarioEscolhidoNome': nomeBeneficiario.trim(),
+        'usuarioEscolhidoCidade': cidadeBeneficiario.trim(),
       });
     });
   }
@@ -366,13 +346,13 @@ class PublicacaoControl {
       transacao.update(publicacaoRef, {
         'status': 'ativa',
         'usuarioEscolhidoId': FieldValue.delete(),
+        'usuarioEscolhidoNome': FieldValue.delete(),
+        'usuarioEscolhidoCidade': FieldValue.delete(),
       });
     });
   }
 
-  Future<void> concluirDoacao({
-    required String publicacaoId,
-  }) async {
+  Future<void> concluirDoacao({required String publicacaoId}) async {
     final usuario = _auth.currentUser;
 
     if (usuario == null) {
@@ -408,9 +388,7 @@ class PublicacaoControl {
       }
 
       if (dados.containsKey('dataConclusao')) {
-        throw Exception(
-          'Esta doação já possui uma data de conclusão.',
-        );
+        throw Exception('Esta doação já possui uma data de conclusão.');
       }
 
       transacao.update(publicacaoRef, {
@@ -461,6 +439,8 @@ class PublicacaoControl {
       transacao.update(publicacaoRef, {
         'status': 'ativa',
         'usuarioEscolhidoId': FieldValue.delete(),
+        'usuarioEscolhidoNome': FieldValue.delete(),
+        'usuarioEscolhidoCidade': FieldValue.delete(),
         'dataConclusao': FieldValue.delete(),
       });
     });

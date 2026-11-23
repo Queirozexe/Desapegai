@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../controller/interesse_control.dart';
 import '../controller/publicacao_control.dart';
 import '../controller/chat_control.dart';
+import '../controller/doacao_control.dart';
 import '../model/interessado.dart';
 import '../model/publicacao.dart';
 import '../theme/app_theme.dart';
@@ -28,6 +29,7 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
 
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
   final ChatControl _chatControl = ChatControl();
+  final DoacaoControl _doacaoControl = DoacaoControl();
 
   String? _usuarioAbrindoConversaId;
   String? _usuarioEscolhidoId;
@@ -247,7 +249,7 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
     });
 
     try {
-      await _publicacaoControl.concluirDoacao(
+      await _doacaoControl.concluirDoacao(
         publicacaoId: publicacaoId,
       );
 

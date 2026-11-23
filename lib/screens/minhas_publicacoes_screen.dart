@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../controller/interesse_control.dart';
 import '../controller/publicacao_control.dart';
+import '../controller/doacao_control.dart';
 import '../model/publicacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
@@ -12,11 +13,7 @@ import 'profile_screen.dart';
 import 'interessados_screen.dart';
 import 'conversas_screen.dart';
 
-enum _FiltroMinhasPublicacoes {
-  disponiveis,
-  emAndamento,
-  concluidas,
-}
+enum _FiltroMinhasPublicacoes { disponiveis, emAndamento, concluidas }
 
 class MinhasPublicacoesScreen extends StatefulWidget {
   const MinhasPublicacoesScreen({super.key});
@@ -26,10 +23,10 @@ class MinhasPublicacoesScreen extends StatefulWidget {
       _MinhasPublicacoesScreenState();
 }
 
-class _MinhasPublicacoesScreenState
-    extends State<MinhasPublicacoesScreen> {
+class _MinhasPublicacoesScreenState extends State<MinhasPublicacoesScreen> {
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
   final InteresseControl _interesseControl = InteresseControl();
+  final DoacaoControl _doacaoControl = DoacaoControl();
 
   late final Stream<List<Publicacao>> _publicacoesStream;
 
@@ -44,8 +41,7 @@ class _MinhasPublicacoesScreenState
   void initState() {
     super.initState();
 
-    _publicacoesStream =
-        _publicacaoControl.acompanharMinhasPublicacoes();
+    _publicacoesStream = _publicacaoControl.acompanharMinhasPublicacoes();
   }
 
   String _statusDoFiltro(_FiltroMinhasPublicacoes filtro) {
@@ -92,23 +88,21 @@ class _MinhasPublicacoesScreenState
 
     return _streamsInteresses.putIfAbsent(
       id,
-          () => _interesseControl.acompanharQuantidadeInteresses(id),
+      () => _interesseControl.acompanharQuantidadeInteresses(id),
     );
   }
 
   void _aviso(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensagem)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensagem)));
   }
 
   void _editarPublicacao(Publicacao publicacao) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CadastroPublicacaoScreen(
-          publicacao: publicacao,
-        ),
+        builder: (context) => CadastroPublicacaoScreen(publicacao: publicacao),
       ),
     );
   }
@@ -126,9 +120,7 @@ class _MinhasPublicacoesScreenState
     });
 
     try {
-      await _publicacaoControl.reabrirDoacao(
-        publicacaoId: id,
-      );
+      await _doacaoControl.reabrirDoacao(publicacaoId: id);
 
       if (!mounted) return;
 
@@ -161,7 +153,7 @@ class _MinhasPublicacoesScreenState
           title: const Text('Remover publicação?'),
           content: Text(
             'Tem certeza de que deseja remover "${publicacao.titulo}"? '
-                'Essa ação não pode ser desfeita.',
+            'Essa ação não pode ser desfeita.',
           ),
           actions: [
             TextButton(
@@ -187,9 +179,7 @@ class _MinhasPublicacoesScreenState
     });
 
     try {
-      await _publicacaoControl.removerPublicacao(
-        publicacaoId: id,
-      );
+      await _publicacaoControl.removerPublicacao(publicacaoId: id);
 
       if (!mounted) return;
 
@@ -268,10 +258,7 @@ class _MinhasPublicacoesScreenState
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 3,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
         color: corFundo,
         borderRadius: BorderRadius.circular(12),
@@ -299,9 +286,7 @@ class _MinhasPublicacoesScreenState
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(
-              color: Color(0xFFE3DDCF),
-            ),
+            side: const BorderSide(color: Color(0xFFE3DDCF)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -314,9 +299,10 @@ class _MinhasPublicacoesScreenState
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => DetalhesPublicacaoScreen(
-                          publicacao: publicacao,
-                        ),
+                        builder:
+                            (context) => DetalhesPublicacaoScreen(
+                              publicacao: publicacao,
+                            ),
                       ),
                     );
                   },
@@ -394,9 +380,10 @@ class _MinhasPublicacoesScreenState
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => InteressadosScreen(
-                                  publicacao: publicacao,
-                                ),
+                                builder:
+                                    (context) => InteressadosScreen(
+                                      publicacao: publicacao,
+                                    ),
                               ),
                             );
                           },
@@ -405,16 +392,15 @@ class _MinhasPublicacoesScreenState
 
                     if (status == 'concluida')
                       OutlinedButton(
-                        onPressed: _publicacaoEmProcessamentoId == publicacao.id
-                            ? null
-                            : () => _reabrirDoacao(publicacao),
+                        onPressed:
+                            _publicacaoEmProcessamentoId == publicacao.id
+                                ? null
+                                : () => _reabrirDoacao(publicacao),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 44),
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           foregroundColor: AppColors.green,
-                          side: const BorderSide(
-                            color: AppColors.green,
-                          ),
+                          side: const BorderSide(color: AppColors.green),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -423,15 +409,16 @@ class _MinhasPublicacoesScreenState
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        child: _publicacaoEmProcessamentoId == publicacao.id
-                            ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                            : const Text('Reabrir'),
+                        child:
+                            _publicacaoEmProcessamentoId == publicacao.id
+                                ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Text('Reabrir'),
                       ),
 
                     OutlinedButton(
@@ -440,9 +427,7 @@ class _MinhasPublicacoesScreenState
                         minimumSize: const Size(0, 44),
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         foregroundColor: const Color(0xFF1B2B24),
-                        side: const BorderSide(
-                          color: Color(0xFF1B2B24),
-                        ),
+                        side: const BorderSide(color: Color(0xFF1B2B24)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -455,16 +440,15 @@ class _MinhasPublicacoesScreenState
                     ),
 
                     OutlinedButton(
-                      onPressed: _publicacaoEmRemocaoId == publicacao.id
-                          ? null
-                          : () => _confirmarRemocao(publicacao),
+                      onPressed:
+                          _publicacaoEmRemocaoId == publicacao.id
+                              ? null
+                              : () => _confirmarRemocao(publicacao),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 44),
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         foregroundColor: const Color(0xFF9A3412),
-                        side: const BorderSide(
-                          color: Color(0xFF9A3412),
-                        ),
+                        side: const BorderSide(color: Color(0xFF9A3412)),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -473,15 +457,16 @@ class _MinhasPublicacoesScreenState
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      child: _publicacaoEmRemocaoId == publicacao.id
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
-                      )
-                          : const Text('Remover'),
+                      child:
+                          _publicacaoEmRemocaoId == publicacao.id
+                              ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Text('Remover'),
                     ),
                   ],
                 ),
@@ -497,68 +482,67 @@ class _MinhasPublicacoesScreenState
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 17),
       child: Row(
-        children: _FiltroMinhasPublicacoes.values.map((filtro) {
-          final status = _statusDoFiltro(filtro);
+        children:
+            _FiltroMinhasPublicacoes.values.map((filtro) {
+              final status = _statusDoFiltro(filtro);
 
-          final quantidade = publicacoes
-              .where((publicacao) => publicacao.status == status)
-              .length;
+              final quantidade =
+                  publicacoes
+                      .where((publicacao) => publicacao.status == status)
+                      .length;
 
-          final selecionado = filtro == _filtroSelecionado;
+              final selecionado = filtro == _filtroSelecionado;
 
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _filtroSelecionado = filtro;
-                  });
-                },
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 46),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 2,
-                    vertical: 4,
-                  ),
-                  backgroundColor: selecionado
-                      ? AppColors.green
-                      : Colors.white,
-                  foregroundColor: selecionado
-                      ? Colors.white
-                      : const Color(0xFF1B2B24),
-                  side: BorderSide(
-                    color: selecionado
-                        ? AppColors.green
-                        : const Color(0xFFCFC8B8),
-                    width: 1.5,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _filtroSelecionado = filtro;
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 46),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 4,
+                      ),
+                      backgroundColor:
+                          selecionado ? AppColors.green : Colors.white,
+                      foregroundColor:
+                          selecionado ? Colors.white : const Color(0xFF1B2B24),
+                      side: BorderSide(
+                        color:
+                            selecionado
+                                ? AppColors.green
+                                : const Color(0xFFCFC8B8),
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      '${_rotuloFiltro(filtro)} ($quantidade)',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
                   ),
                 ),
-                child: Text(
-                  '${_rotuloFiltro(filtro)} ($quantidade)',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
       ),
     );
   }
 
   Widget _construirLista(AsyncSnapshot<List<Publicacao>> snapshot) {
     if (snapshot.connectionState == ConnectionState.waiting) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (snapshot.hasError) {
@@ -567,7 +551,7 @@ class _MinhasPublicacoesScreenState
           padding: EdgeInsets.all(16),
           child: Text(
             'Não foi possível carregar suas publicações. '
-                'Verifique sua conexão e tente novamente.',
+            'Verifique sua conexão e tente novamente.',
             textAlign: TextAlign.center,
           ),
         ),
@@ -576,78 +560,75 @@ class _MinhasPublicacoesScreenState
 
     final publicacoes = snapshot.data ?? [];
 
-    final statusSelecionado = _statusDoFiltro(
-      _filtroSelecionado,
-    );
+    final statusSelecionado = _statusDoFiltro(_filtroSelecionado);
 
-    final publicacoesFiltradas = publicacoes
-        .where(
-          (publicacao) => publicacao.status == statusSelecionado,
-    )
-        .toList();
+    final publicacoesFiltradas =
+        publicacoes
+            .where((publicacao) => publicacao.status == statusSelecionado)
+            .toList();
 
     return Column(
       children: [
         _construirFiltros(publicacoes),
         const SizedBox(height: 12),
         Expanded(
-          child: publicacoesFiltradas.isEmpty
-              ? Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.inventory_2_outlined,
-                    size: 48,
-                    color: AppColors.muted,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    publicacoes.isEmpty
-                        ? 'Você ainda não publicou nenhum item.'
-                        : 'Você ainda não possui publicações '
-                        '${_rotuloFiltro(_filtroSelecionado).toLowerCase()}.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 14,
-                      height: 1.4,
-                    ),
-                  ),
-                  if (_filtroSelecionado ==
-                      _FiltroMinhasPublicacoes.disponiveis) ...[
-                    const SizedBox(height: 16),
-                    Botoes(
-                      'Publicar um item',
-                      onPressed: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                            const CadastroPublicacaoScreen(),
+          child:
+              publicacoesFiltradas.isEmpty
+                  ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.inventory_2_outlined,
+                            size: 48,
+                            color: AppColors.muted,
                           ),
-                              (route) => route.isFirst,
-                        );
-                      },
+                          const SizedBox(height: 12),
+                          Text(
+                            publicacoes.isEmpty
+                                ? 'Você ainda não publicou nenhum item.'
+                                : 'Você ainda não possui publicações '
+                                    '${_rotuloFiltro(_filtroSelecionado).toLowerCase()}.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                          if (_filtroSelecionado ==
+                              _FiltroMinhasPublicacoes.disponiveis) ...[
+                            const SizedBox(height: 16),
+                            Botoes(
+                              'Publicar um item',
+                              onPressed: () {
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            const CadastroPublicacaoScreen(),
+                                  ),
+                                  (route) => route.isFirst,
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ],
-                ],
-              ),
-            ),
-          )
-              : ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-            itemCount: publicacoesFiltradas.length,
-            separatorBuilder: (context, index) =>
-            const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              return _construirCard(
-                publicacoesFiltradas[index],
-              );
-            },
-          ),
+                  )
+                  : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                    itemCount: publicacoesFiltradas.length,
+                    separatorBuilder:
+                        (context, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      return _construirCard(publicacoesFiltradas[index]);
+                    },
+                  ),
         ),
       ],
     );
@@ -692,10 +673,7 @@ class _MinhasPublicacoesScreenState
         selectedIndex: 1,
         onDestinationSelected: (index) {
           if (index == 0) {
-            Navigator.popUntil(
-              context,
-                  (route) => route.isFirst,
-            );
+            Navigator.popUntil(context, (route) => route.isFirst);
             return;
           }
 
@@ -707,7 +685,7 @@ class _MinhasPublicacoesScreenState
               MaterialPageRoute(
                 builder: (context) => const CadastroPublicacaoScreen(),
               ),
-                  (route) => route.isFirst,
+              (route) => route.isFirst,
             );
             return;
           }
@@ -715,10 +693,8 @@ class _MinhasPublicacoesScreenState
           if (index == 3) {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ConversasScreen(),
-              ),
-                  (route) => route.isFirst,
+              MaterialPageRoute(builder: (context) => const ConversasScreen()),
+              (route) => route.isFirst,
             );
             return;
           }
@@ -726,17 +702,13 @@ class _MinhasPublicacoesScreenState
           if (index == 4) {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ProfileScreen(),
-              ),
-                  (route) => route.isFirst,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              (route) => route.isFirst,
             );
             return;
           }
 
-          _aviso(
-            'Esta funcionalidade será implementada em uma próxima etapa.',
-          );
+          _aviso('Esta funcionalidade será implementada em uma próxima etapa.');
         },
         destinations: const [
           NavigationDestination(

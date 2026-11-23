@@ -161,13 +161,23 @@ service cloud.firestore {
 
                       (
                         resource.data.status == 'ativa'
-                        && !resource.data.keys().hasAny(['usuarioEscolhidoId'])
+                        && !resource.data.keys().hasAny([
+                          'usuarioEscolhidoId',
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade'
+                        ])
                         && request.resource.data.status == 'em_andamento'
                         && request.resource.data.usuarioEscolhidoId is string
                         && request.resource.data.usuarioEscolhidoId != request.auth.uid
+                        && request.resource.data.usuarioEscolhidoNome is string
+                        && request.resource.data.usuarioEscolhidoNome.size() > 0
+                        && request.resource.data.usuarioEscolhidoCidade is string
+                        && request.resource.data.usuarioEscolhidoCidade.size() > 0
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                           'status',
-                          'usuarioEscolhidoId'
+                          'usuarioEscolhidoId',
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade'
                         ])
                         && exists(
                           /databases/$(database)/documents/publicacoes/$(publicacaoId)/interesses/$(request.resource.data.usuarioEscolhidoId)
@@ -175,6 +185,12 @@ service cloud.firestore {
                         && get(
                           /databases/$(database)/documents/publicacoes/$(publicacaoId)/interesses/$(request.resource.data.usuarioEscolhidoId)
                         ).data.usuarioId == request.resource.data.usuarioEscolhidoId
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)/interesses/$(request.resource.data.usuarioEscolhidoId)
+                        ).data.nomeUsuario == request.resource.data.usuarioEscolhidoNome
+                        && get(
+                          /databases/$(database)/documents/publicacoes/$(publicacaoId)/interesses/$(request.resource.data.usuarioEscolhidoId)
+                        ).data.cidade == request.resource.data.usuarioEscolhidoCidade
                       )
 
                       ||
@@ -185,11 +201,16 @@ service cloud.firestore {
                         && request.resource.data.status == 'ativa'
                         && !request.resource.data.keys().hasAny([
                           'usuarioEscolhidoId',
-                          'dataConclusao'
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade',
+                          'dataConclusao',
+                          'doacaoAtualId'
                         ])
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                           'status',
-                          'usuarioEscolhidoId'
+                          'usuarioEscolhidoId',
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade'
                         ])
                       )
 
@@ -198,14 +219,39 @@ service cloud.firestore {
                       (
                         resource.data.status == 'em_andamento'
                         && resource.data.usuarioEscolhidoId is string
-                        && !resource.data.keys().hasAny(['dataConclusao'])
+                        && resource.data.usuarioEscolhidoNome is string
+                        && resource.data.usuarioEscolhidoCidade is string
+                        && !resource.data.keys().hasAny([
+                          'dataConclusao',
+                          'doacaoAtualId'
+                        ])
                         && request.resource.data.status == 'concluida'
                         && request.resource.data.usuarioEscolhidoId == resource.data.usuarioEscolhidoId
                         && request.resource.data.dataConclusao == request.time
+                        && request.resource.data.doacaoAtualId is string
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                           'status',
-                          'dataConclusao'
+                          'dataConclusao',
+                          'doacaoAtualId'
                         ])
+                        && existsAfter(
+                          /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoAtualId)
+                        )
+                        && getAfter(
+                          /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoAtualId)
+                        ).data.publicacaoId == publicacaoId
+                        && getAfter(
+                          /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoAtualId)
+                        ).data.doadorId == request.auth.uid
+                        && getAfter(
+                          /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoAtualId)
+                        ).data.beneficiarioId == resource.data.usuarioEscolhidoId
+                        && getAfter(
+                          /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoAtualId)
+                        ).data.dataConclusao == request.time
+                        && getAfter(
+                          /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoAtualId)
+                        ).data.status == 'concluida'
                       )
 
                       ||
@@ -214,18 +260,65 @@ service cloud.firestore {
                         resource.data.status == 'concluida'
                         && resource.data.keys().hasAll([
                           'usuarioEscolhidoId',
-                          'dataConclusao'
+                          'dataConclusao',
+                          'doacaoAtualId'
                         ])
                         && resource.data.usuarioEscolhidoId is string
                         && resource.data.dataConclusao is timestamp
+                        && resource.data.doacaoAtualId is string
                         && request.resource.data.status == 'ativa'
                         && !request.resource.data.keys().hasAny([
                           'usuarioEscolhidoId',
-                          'dataConclusao'
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade',
+                          'dataConclusao',
+                          'doacaoAtualId'
                         ])
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                           'status',
                           'usuarioEscolhidoId',
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade',
+                          'dataConclusao',
+                          'doacaoAtualId'
+                        ])
+                        && exists(
+                          /databases/$(database)/documents/doacoes/$(resource.data.doacaoAtualId)
+                        )
+                        && get(
+                          /databases/$(database)/documents/doacoes/$(resource.data.doacaoAtualId)
+                        ).data.publicacaoId == publicacaoId
+                        && get(
+                          /databases/$(database)/documents/doacoes/$(resource.data.doacaoAtualId)
+                        ).data.doadorId == request.auth.uid
+                        && getAfter(
+                          /databases/$(database)/documents/doacoes/$(resource.data.doacaoAtualId)
+                        ).data.status == 'reaberta'
+                        && getAfter(
+                          /databases/$(database)/documents/doacoes/$(resource.data.doacaoAtualId)
+                        ).data.dataReabertura == request.time
+                      )
+
+                      ||
+
+                      (
+                        resource.data.status == 'concluida'
+                        && resource.data.usuarioEscolhidoId is string
+                        && resource.data.dataConclusao is timestamp
+                        && !resource.data.keys().hasAny(['doacaoAtualId'])
+                        && request.resource.data.status == 'ativa'
+                        && !request.resource.data.keys().hasAny([
+                          'usuarioEscolhidoId',
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade',
+                          'dataConclusao',
+                          'doacaoAtualId'
+                        ])
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'status',
+                          'usuarioEscolhidoId',
+                          'usuarioEscolhidoNome',
+                          'usuarioEscolhidoCidade',
                           'dataConclusao'
                         ])
                       )
@@ -516,8 +609,147 @@ service cloud.firestore {
       }
     }
 
+
+    match /doacoes/{doacaoId} {
+        allow create: if request.auth != null
+                      && request.resource.data.keys().hasOnly([
+                        'publicacaoId',
+                        'tituloPublicacao',
+                        'imagemPublicacao',
+                        'doadorId',
+                        'doadorNome',
+                        'beneficiarioId',
+                        'beneficiarioNome',
+                        'beneficiarioCidade',
+                        'participantes',
+                        'dataConclusao',
+                        'status'
+                      ])
+                      && request.resource.data.keys().hasAll([
+                        'publicacaoId',
+                        'tituloPublicacao',
+                        'imagemPublicacao',
+                        'doadorId',
+                        'doadorNome',
+                        'beneficiarioId',
+                        'beneficiarioNome',
+                        'beneficiarioCidade',
+                        'participantes',
+                        'dataConclusao',
+                        'status'
+                      ])
+                      && request.resource.data.publicacaoId is string
+                      && request.resource.data.publicacaoId.size() > 0
+                      && request.resource.data.tituloPublicacao is string
+                      && request.resource.data.tituloPublicacao.size() > 0
+                      && (
+                        request.resource.data.imagemPublicacao == null
+                        || request.resource.data.imagemPublicacao is string
+                      )
+                      && request.resource.data.doadorId == request.auth.uid
+                      && request.resource.data.doadorNome is string
+                      && request.resource.data.beneficiarioId is string
+                      && request.resource.data.beneficiarioId != request.auth.uid
+                      && request.resource.data.beneficiarioNome is string
+                      && request.resource.data.beneficiarioCidade is string
+                      && request.resource.data.participantes is list
+                      && request.resource.data.participantes.size() == 2
+                      && request.resource.data.doadorId in request.resource.data.participantes
+                      && request.resource.data.beneficiarioId in request.resource.data.participantes
+                      && request.resource.data.dataConclusao == request.time
+                      && request.resource.data.status == 'concluida'
+                      && exists(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      )
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.usuarioId == request.auth.uid
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.status == 'concluida'
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.doacaoAtualId == doacaoId
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.usuarioEscolhidoId == request.resource.data.beneficiarioId
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.usuarioEscolhidoNome == request.resource.data.beneficiarioNome
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.usuarioEscolhidoCidade == request.resource.data.beneficiarioCidade
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.titulo == request.resource.data.tituloPublicacao
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.nomeDoador == request.resource.data.doadorNome
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.dataConclusao == request.time
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                      ).data.imagens is list
+                      && (
+                        (
+                          request.resource.data.imagemPublicacao == null
+                          && getAfter(
+                            /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                          ).data.imagens.size() == 0
+                        )
+                        ||
+                        (
+                          request.resource.data.imagemPublicacao is string
+                          && getAfter(
+                            /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                          ).data.imagens.size() > 0
+                          && request.resource.data.imagemPublicacao == getAfter(
+                            /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)
+                          ).data.imagens[0]
+                        )
+                      );
+
+        allow get, list: if request.auth != null
+                      && request.auth.uid in resource.data.participantes;
+
+        allow update: if request.auth != null
+                      && request.auth.uid == resource.data.doadorId
+                      && resource.data.status == 'concluida'
+                      && !resource.data.keys().hasAny(['dataReabertura'])
+                      && request.resource.data.status == 'reaberta'
+                      && request.resource.data.dataReabertura == request.time
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'status',
+                        'dataReabertura'
+                      ])
+                      && exists(
+                        /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                      )
+                      && get(
+                        /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                      ).data.status == 'concluida'
+                      && get(
+                        /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                      ).data.doacaoAtualId == doacaoId
+                      && getAfter(
+                        /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                      ).data.status == 'ativa'
+                      && !getAfter(
+                        /databases/$(database)/documents/publicacoes/$(resource.data.publicacaoId)
+                      ).data.keys().hasAny([
+                        'usuarioEscolhidoId',
+                        'usuarioEscolhidoNome',
+                        'usuarioEscolhidoCidade',
+                        'dataConclusao',
+                        'doacaoAtualId'
+                      ]);
+
+        allow delete: if false;
+    }
+
     match /denuncias/{denunciaId} {
-          allow create: if request.auth != null
+        allow create: if request.auth != null
                       && request.resource.data.keys().hasOnly([
                         'denuncianteId',
                         'denunciadoId',
@@ -665,7 +897,7 @@ service cloud.firestore {
                         )
                       );
 
-          allow read, update, delete: if false;
+        allow read, update, delete: if false;
     }
   }
 }
