@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../controller/chat_control.dart';
 import '../controller/publicacao_control.dart';
+import '../controller/denuncia_control.dart';
 import '../model/conversa.dart';
 import '../model/mensagem.dart';
 import '../theme/app_theme.dart';
 import '../widgets/input.dart';
+import '../widgets/dialogo_denuncia.dart';
 import 'detalhes_publicacao_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -25,12 +27,23 @@ class _ChatScreenState extends State<ChatScreen> {
   final ChatControl _chatControl = ChatControl();
   final TextEditingController _mensagemController = TextEditingController();
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
+  final DenunciaControl _denunciaControl = DenunciaControl();
 
   late final Stream<List<Mensagem>> _mensagensStream;
   late final String _usuarioAtualId;
 
   bool _abrindoPublicacao = false;
   bool _enviando = false;
+  bool _enviandoDenuncia = false;
+
+  bool get _ehDoadorAtual =>
+      _usuarioAtualId.isNotEmpty &&
+          _usuarioAtualId == widget.conversa.doadorId;
+
+  bool get _ehParticipanteAtual =>
+      _usuarioAtualId.isNotEmpty &&
+          (_ehDoadorAtual ||
+              _usuarioAtualId == widget.conversa.interessadoId);
 
   @override
   void initState() {
@@ -118,15 +131,59 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _denunciarDoador() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'A opção de denunciar usuários será implementada em uma próxima etapa.',
-        ),
-      ),
+  Future<void> _denunciarUsuario() async {
+    if (_enviandoDenuncia || !_ehParticipanteAtual) return;
+
+    final resultado = await DialogoDenuncia.mostrar(
+      context: context,
+      titulo: _ehDoadorAtual
+          ? 'Denunciar interessado'
+          : 'Denunciar doador',
+      motivos: DenunciaControl.motivosUsuario,
     );
+
+    if (!mounted || resultado == null) return;
+
+    setState(() {
+      _enviandoDenuncia = true;
+    });
+
+    try {
+      await _denunciaControl.denunciarUsuario(
+        conversaId: widget.conversa.id,
+        motivo: resultado['motivo']!,
+        descricao: resultado['descricao'] ?? '',
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Denúncia enviada com sucesso.'),
+        ),
+      );
+    } catch (erro, stackTrace) {
+      debugPrint('Erro ao denunciar usuário: $erro');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível enviar a denúncia. Tente novamente.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _enviandoDenuncia = false;
+        });
+      }
+    }
   }
+
 
   Future<void> _enviarMensagem() async {
     final texto = _mensagemController.text.trim();
@@ -433,10 +490,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                               ),
                             ),
-                            if (_usuarioAtualId == widget.conversa.interessadoId)
+                            if (_ehParticipanteAtual)
                               IconButton(
-                                onPressed: _denunciarDoador,
-                                tooltip: 'Denunciar doador',
+                                onPressed: _enviandoDenuncia ? null : _denunciarUsuario,
+                                tooltip: _ehDoadorAtual
+                                    ? 'Denunciar interessado'
+                                    : 'Denunciar doador',
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(
                                   minWidth: 36,

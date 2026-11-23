@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../model/publicacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
+import '../widgets/dialogo_denuncia.dart';
+import '../controller/denuncia_control.dart';
 import '../controller/interesse_control.dart';
 import '../controller/chat_control.dart';
 import 'chat_screen.dart';
@@ -25,7 +27,9 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   bool _processandoInteresse = false;
   bool _erroCarregamentoInteresse = false;
   bool _abrindoConversa = false;
+  bool _enviandoDenuncia = false;
 
+  late final DenunciaControl _denunciaControl;
   late final ChatControl _chatControl;
   late final InteresseControl _interesseControl;
 
@@ -43,6 +47,7 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
 
     _interesseControl = InteresseControl();
     _chatControl = ChatControl();
+    _denunciaControl = DenunciaControl();
 
     if (!_ehMinhaPublicacao) {
       _carregarInteresse();
@@ -93,6 +98,48 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
       }
     }
   }
+
+  Future<void> _denunciarPublicacao() async {
+    if (_enviandoDenuncia) return;
+
+    final resultado = await DialogoDenuncia.mostrar(
+      context: context,
+      titulo: 'Denunciar publicação',
+      motivos: DenunciaControl.motivosPublicacao,
+    );
+
+    if (!mounted || resultado == null) return;
+
+    setState(() {
+      _enviandoDenuncia = true;
+    });
+
+    try {
+      await _denunciaControl.denunciarPublicacao(
+        publicacaoId: _obterPublicacaoId(),
+        motivo: resultado['motivo']!,
+        descricao: resultado['descricao'] ?? '',
+      );
+
+      if (!mounted) return;
+
+      _aviso('Denúncia enviada com sucesso.');
+    } catch (erro, stackTrace) {
+      debugPrint('Erro ao denunciar publicação: $erro');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      _aviso('Não foi possível enviar a denúncia. Tente novamente.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _enviandoDenuncia = false;
+        });
+      }
+    }
+  }
+
 
   String _obterPublicacaoId() {
     final id = publicacao.id;
@@ -679,12 +726,7 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
             ? const <Widget>[]
             : [
           IconButton(
-            onPressed: () {
-              _aviso(
-                'A opção de denunciar publicações será implementada '
-                    'em uma próxima etapa.',
-              );
-            },
+            onPressed: _enviandoDenuncia ? null : _denunciarPublicacao,
             icon: const Icon(Icons.flag_outlined),
             color: Colors.black87,
             tooltip: 'Denunciar publicação',
