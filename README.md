@@ -10,11 +10,15 @@ O Desapegaí é uma plataforma voltada exclusivamente a **doações gratuitas**.
 
 O projeto está em desenvolvimento incremental. A autenticação, o gerenciamento de sessão e o gerenciamento de perfis estão integrados ao Firebase Authentication e ao Cloud Firestore.
 
+O aplicativo possui recuperação de perfis ausentes. Quando um usuário autenticado não possui um documento correspondente no Firestore, o sistema apresenta uma tela para completar os dados do perfil antes de liberar o acesso à Home.
+
+As regras de segurança dos perfis restringem as operações ao próprio usuário autenticado, protegendo os campos de identificação e permitindo a atualização somente das informações pessoais autorizadas.
+
 O cadastro, a edição e a remoção de publicações estão implementados. O aplicativo permite cadastrar itens para doação gratuita, armazenar suas informações no Firestore e enviar imagens ao Cloudinary.
 
 A tela inicial está integrada ao Firestore, exibindo publicações disponíveis em tempo real. A listagem possui busca, filtros por categoria e imagens armazenadas no Cloudinary.
 
-A tela de detalhes permite visualizar as informações completas de uma publicação, navegar pelas imagens, consultar os dados públicos do doador e demonstrar ou cancelar interesse. Ao demonstrar interesse, o usuário pode enviar uma mensagem personalizada.
+A tela de detalhes permite visualizar as informações completas de uma publicação, navegar pelas imagens, consultar os dados públicos do doador e demonstrar ou cancelar interesse. Ao demonstrar interesse, o usuário pode enviar uma mensagem personalizada e iniciar uma conversa com o doador.
 
 A tela **Minhas publicações** permite acompanhar as publicações cadastradas, filtrar por situação, editar e remover itens e acessar o gerenciamento dos interessados.
 
@@ -25,6 +29,8 @@ O gerenciamento dos estados da publicação está implementado, incluindo as sit
 A comunicação entre usuários está implementada. Cada pessoa interessada pode conversar individualmente com o doador da publicação, independentemente de ter sido escolhida para receber a doação. As conversas são armazenadas no Cloud Firestore, com envio e recebimento de mensagens em tempo real.
 
 A tela Mensagens apresenta as conversas do usuário autenticado, incluindo o nome do outro participante, a publicação relacionada e a prévia da última mensagem.
+
+O sistema de denúncias está implementado. Os usuários podem denunciar publicações e também denunciar outros participantes de uma conversa, permitindo que tanto o doador quanto o interessado realizem denúncias. Os registros são armazenados no Cloud Firestore para futura análise administrativa.
 
 ## Funcionalidades implementadas
 
@@ -56,12 +62,18 @@ A tela Mensagens apresenta as conversas do usuário autenticado, incluindo o nom
 - Monitoramento do estado de autenticação com `authStateChanges()`.
 - Verificação automática da sessão ao abrir o aplicativo.
 - Exibição da tela de Login quando não há usuário autenticado.
-- Exibição da Home quando existe uma sessão válida.
+- Exibição da Home quando existe uma sessão válida e o perfil correspondente está disponível no Firestore.
 - Restauração da sessão após fechar e abrir novamente o aplicativo.
 - Logout pelo método `signOut()` do Firebase Authentication.
 - Retorno imediato à tela de Login após o encerramento da sessão.
 
 O widget `AuthGate` observa o estado de autenticação e decide qual tela deve ser apresentada. Dessa forma, a exibição da tela de Login ou da Home depende da sessão do Firebase.
+
+Quando existe uma sessão autenticada, o `AuthGate` também verifica a existência do perfil correspondente no Cloud Firestore. Caso o documento não exista, o aplicativo apresenta a `CompletarPerfilScreen`, permitindo que o usuário informe seu nome e cidade.
+
+O e-mail é recuperado diretamente do Firebase Authentication. Após o preenchimento, o documento é criado sem sobrescrever um perfil existente, utilizando uma transação do Firestore. Somente após a confirmação da criação o usuário é direcionado à Home.
+
+Falhas na consulta do perfil são tratadas separadamente da ausência do documento, permitindo uma nova tentativa sem direcionar incorretamente o usuário para a recuperação.
 
 ### 5. Tela inicial (Home)
 
@@ -70,7 +82,7 @@ A `HomeScreen` apresenta:
 - Cabeçalho com identificação do Desapegaí.
 - Saudação personalizada com o nome recuperado do perfil do usuário.
 - Cidade informada no cadastro, carregada do Cloud Firestore.
-- Indicador de carregamento e mensagens para falhas ou ausência do perfil.
+- Indicador de carregamento e tratamento de falhas na consulta do perfil.
 - Campo de busca de publicações.
 - Filtros por categoria na ordem: Todos, Roupas, Livros, Móveis, Calçados, Utensílios, Eletrônicos e Outros.
 - Exibição dos filtros somente quando existe pelo menos uma publicação disponível na respectiva categoria.
@@ -174,7 +186,11 @@ O estado do interesse é recuperado do Firestore ao abrir a tela, permitindo man
 
 Após demonstrar interesse, o usuário pode acessar a conversa com o doador pelo botão "Conversar". Caso a conversa já exista para aquela publicação e aquele interessado, ela é recuperada; caso contrário, é criada.
 
-O botão de denúncia da publicação está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda será desenvolvido.
+O botão de denúncia permite registrar reclamações sobre publicações de outros usuários. Ao selecioná-lo, o aplicativo apresenta um formulário com motivos predefinidos e um campo opcional para descrição adicional, limitado a 500 caracteres.
+
+Os motivos disponíveis são: item proibido ou perigoso; cobrança de valores ou tentativa de venda; conduta inadequada ou ofensiva; informações falsas ou fotos que não correspondem; spam ou conteúdo repetido; e outro motivo.
+
+Após o envio, a denúncia é registrada na coleção `denuncias` do Cloud Firestore, vinculada ao usuário autenticado e ao proprietário da publicação.
 
 ### 10. Tela de Minhas publicações
 
@@ -271,9 +287,13 @@ Funcionalidades implementadas:
 - Indicador de envio.
 - Orientação de segurança durante a conversa.
 - Acesso à publicação relacionada pelo título exibido no cabeçalho.
-- Botão visual para denunciar o doador, disponível para o interessado.
+- Botão de denúncia disponível para os dois participantes da conversa.
+- Identificação automática do outro participante como denunciado.
+- Formulário de denúncia com motivos predefinidos e descrição opcional.
 
-O botão de denúncia do doador está presente na interface, mas o fluxo de registro e gerenciamento de denúncias ainda não foi implementado.
+O sistema permite denúncias recíprocas entre os participantes. O interessado pode denunciar o doador, e o doador pode denunciar o interessado. O título do formulário é ajustado conforme o usuário autenticado.
+
+A denúncia pode ser registrada mesmo quando a conversa ainda não possui mensagens enviadas, pois a identificação dos participantes é armazenada no próprio documento da conversa.
 
 #### Acesso às conversas
 
@@ -315,7 +335,7 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, das conversas e das mensagens trocadas entre doadores e interessados.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, das conversas, das mensagens e das denúncias.
 
 #### Coleção `usuarios`
 
@@ -445,13 +465,40 @@ O `ChatControl` também sincroniza o título e a primeira imagem da publicação
 
 As consultas utilizam `snapshots()`, permitindo atualizar a listagem de conversas e o conteúdo do chat conforme novos dados são registrados no Firestore.
 
+#### Coleção `denuncias`
+
+Cada denúncia é armazenada como um documento na coleção `denuncias`, utilizando um identificador gerado pelo Firestore.
+
+Os principais campos são:
+
+| Campo | Descrição |
+|---|---|
+| `denuncianteId` | UID do usuário que realizou a denúncia |
+| `denunciadoId` | UID do usuário ou proprietário da publicação denunciada |
+| `tipo` | Tipo da denúncia: `publicacao` ou `usuario` |
+| `publicacaoId` | Identificador da publicação relacionada |
+| `tituloPublicacao` | Título da publicação no momento do registro |
+| `conversaId` | Identificador da conversa relacionada, quando aplicável |
+| `motivo` | Motivo selecionado no formulário |
+| `descricao` | Detalhes adicionais informados pelo denunciante |
+| `dataCriacao` | Data e horário do registro, definidos pelo servidor |
+| `status` | Situação inicial da denúncia: `pendente` |
+
+As denúncias de publicação são vinculadas ao proprietário do item denunciado. As denúncias de usuário são vinculadas à conversa e identificam o outro participante como denunciado.
+
+O `DenunciaControl` valida os dados, identifica os participantes e registra as denúncias no Firestore. O formulário reutilizável `DialogoDenuncia` apresenta os motivos disponíveis e permite adicionar uma descrição complementar.
+
+Os documentos são criados com status inicial `pendente`. A consulta e o gerenciamento administrativo das denúncias serão implementados posteriormente.
+
 ### Regras de segurança
 
-O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `conversas` e às subcoleções `interesses` e `mensagens`.
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `conversas`, `denuncias` e às subcoleções `interesses` e `mensagens`.
 
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
 Na coleção `usuarios`, as regras restringem a consulta e a atualização do documento ao próprio usuário. A listagem geral e a exclusão de perfis são bloqueadas.
+
+As regras da coleção `usuarios` validam os campos obrigatórios durante a criação do perfil. As atualizações são restritas aos campos `nome`, `cidade` e `sobreMim`, impedindo alterações no UID e no e-mail, bem como a inclusão de campos não previstos no modelo.
 
 Na coleção `publicacoes`, as regras controlam a criação, leitura, atualização e exclusão dos documentos, incluindo:
 
@@ -490,6 +537,18 @@ A coleção `conversas` e sua subcoleção `mensagens` possuem regras específic
 - Somente o doador pode atualizar o título e a imagem da publicação nas conversas, desde que os novos valores correspondam aos dados registrados na publicação.
 - Somente o doador pode excluir os documentos das conversas e suas mensagens.
 - As atualizações das informações da publicação não permitem alterar os participantes ou os dados de identificação da conversa.
+
+A coleção `denuncias` possui regras específicas:
+
+- Somente usuários autenticados podem criar denúncias.
+- O denunciante deve corresponder ao UID da conta autenticada.
+- Não é permitido denunciar a própria conta.
+- As denúncias de publicação devem corresponder ao proprietário e aos dados reais da publicação.
+- As denúncias de usuário devem ser realizadas por um participante da conversa contra o outro participante.
+- Os motivos devem corresponder às opções permitidas para cada tipo de denúncia.
+- A data de criação deve corresponder ao horário do servidor.
+- O status inicial deve ser `pendente`.
+- A leitura, atualização e exclusão dos documentos são bloqueadas pelas regras atuais.
 
 ## Armazenamento de imagens
 
@@ -535,33 +594,36 @@ desapegai/
 │   ├── firebase_options.dart
 │   ├── controller/
 │   │   ├── cadastro_control.dart
+│   │   ├── chat_control.dart
+│   │   ├── denuncia_control.dart
+│   │   ├── interesse_control.dart
 │   │   ├── login_control.dart
+│   │   ├── publicacao_control.dart
 │   │   ├── recuperacao_senha_control.dart
 │   │   ├── sessao_control.dart
-│   │   ├── usuario_control.dart
-│   │   ├── interesse_control.dart
-│   │   ├── publicacao_control.dart
-│   │   └── chat_control.dart
+│   │   └── usuario_control.dart
 │   ├── model/
-│   │   ├── usuario.dart
-│   │   ├── publicacao.dart
-│   │   ├── interessado.dart
 │   │   ├── conversa.dart
-│   │   └── mensagem.dart
+│   │   ├── denuncia.dart
+│   │   ├── interessado.dart
+│   │   ├── mensagem.dart
+│   │   ├── publicacao.dart
+│   │   └── usuario.dart
 │   ├── screens/
 │   │   ├── auth_gate.dart
-│   │   ├── home_screen.dart
-│   │   ├── login_screen.dart
-│   │   ├── recover_password_screen.dart
-│   │   ├── register_screen.dart
-│   │   ├── profile_screen.dart
-│   │   ├── edit_profile_screen.dart
 │   │   ├── cadastro_publicacao_screen.dart
-│   │   ├── detalhes_publicacao_screen.dart
-│   │   ├── minhas_publicacoes_screen.dart
-│   │   ├── interessados_screen.dart
+│   │   ├── chat_screen.dart
+│   │   ├── completar_perfil_screen.dart
 │   │   ├── conversas_screen.dart
-│   │   └── chat_screen.dart
+│   │   ├── detalhes_publicacao_screen.dart
+│   │   ├── edit_profile_screen.dart
+│   │   ├── home_screen.dart
+│   │   ├── interessados_screen.dart
+│   │   ├── login_screen.dart
+│   │   ├── minhas_publicacoes_screen.dart
+│   │   ├── profile_screen.dart
+│   │   ├── recover_password_screen.dart
+│   │   └── register_screen.dart
 │   ├── services/
 │   │   ├── cloudinary_service.dart
 │   │   └── localizacao_service.dart
@@ -570,6 +632,7 @@ desapegai/
 │   └── widgets/
 │       ├── auth_layout.dart
 │       ├── botoes.dart
+│       ├── dialogo_denuncia.dart
 │       ├── imagens.dart
 │       ├── input.dart
 │       └── texto.dart
@@ -590,7 +653,8 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 |---|---|
 | Inicialização do aplicativo | `AuthGate` verifica o estado de autenticação |
 | Sem sessão autenticada | `LoginScreen` |
-| Com sessão autenticada | `HomeScreen` |
+| Com sessão autenticada e perfil existente | `HomeScreen` |
+| Com sessão autenticada, mas sem perfil no Firestore | `CompletarPerfilScreen` |
 | `/cadastro` | `RegisterScreen` |
 | `/recuperar-senha` | `RecoverPasswordScreen` |
 | Opção Início na navegação inferior | `HomeScreen` |
@@ -602,7 +666,7 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Seleção de publicação na Home ou em Minhas | `DetalhesPublicacaoScreen` |
 | Botão Ver interessados | `InteressadosScreen` |
 
-A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado.
+A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado e o perfil correspondente está disponível no Firestore. Caso o perfil não exista, o aplicativo apresenta a `CompletarPerfilScreen` para sua recuperação.
 
 ## Tecnologias
 
@@ -610,7 +674,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, das conversas e das mensagens.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, das conversas, das mensagens e das denúncias.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -712,7 +776,7 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Restauração da sessão após fechar e abrir o aplicativo.
 - [x] Carregamento do perfil do usuário autenticado pelo UID no Firestore.
 - [x] Exibição do nome e da cidade do usuário na Home.
-- [x] Tratamento de carregamento, falha de consulta e perfil inexistente sem interromper a Home.
+- [x] Tratamento de falhas na consulta do perfil, diferenciando-as da ausência do documento.
 - [x] Abertura da tela de perfil pela navegação inferior.
 - [x] Exibição dos dados pessoais na tela de perfil.
 - [x] Carregamento dos dados existentes nos campos de edição.
@@ -776,7 +840,8 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Atualização da última mensagem na listagem de conversas.
 - [x] Acesso às conversas pela navegação inferior.
 - [x] Abertura da publicação relacionada pelo cabeçalho do chat.
-- [x] Exibição do botão de denúncia do doador no chat.
+- [x] Exibição do botão de denúncia para ambos os participantes do chat.
+- [x] Teste de denúncias nos dois sentidos: interessado contra doador e doador contra interessado.
 - [x] Sincronização do título da publicação nas conversas após a edição.
 - [x] Sincronização da primeira imagem da publicação nas conversas após a edição.
 - [x] Preservação das mensagens existentes durante a edição da publicação.
@@ -786,20 +851,37 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Exclusão das mensagens das conversas antes da remoção dos documentos das conversas.
 - [x] Exclusão dos registros de interesse e da publicação após a limpeza das conversas.
 - [x] Teste de remoção com múltiplos interessados e conversas.
+- [x] Identificação de conta autenticada sem perfil no Firestore.
+- [x] Exibição da tela de recuperação de perfil.
+- [x] Criação do perfil ausente com os cinco campos obrigatórios.
+- [x] Preservação de perfis existentes durante a recuperação.
+- [x] Login direto na Home quando o perfil já existe.
+- [x] Recuperação do perfil utilizando o e-mail do Firebase Authentication.
+- [x] Atualização permitida somente dos campos autorizados do perfil.
+- [x] Bloqueio da alteração do UID no perfil.
+- [x] Bloqueio da alteração do e-mail no perfil.
+- [x] Bloqueio da inclusão de campos não permitidos no perfil.
+- [x] Registro de denúncias de publicações.
+- [x] Registro de denúncias de usuários pelo interessado.
+- [x] Registro de denúncias de usuários pelo doador.
+- [x] Registro de denúncia em conversa sem mensagens anteriores.
+- [x] Exibição dos motivos definidos no protótipo.
+- [x] Validação dos dados registrados na coleção `denuncias`.
+- [x] Registro da data de criação pelo servidor.
+- [x] Definição do status inicial da denúncia como `pendente`.
 
-A análise estática com `flutter analyze` foi executada sem identificar erros. Permanecem 2 warnings e 26 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
+A análise estática com `flutter analyze` foi executada sem identificar erros. Na última execução, foram apresentados 2 warnings e 28 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
 
 ## Funcionalidades pendentes
 
-- [ ] Definição do fluxo para contas autenticadas sem documento de perfil no Firestore.
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
 - [ ] Notificações relacionadas aos interesses e às etapas da doação.
 - [ ] Implementação de filtro de distância com cálculo geográfico real.
 - [ ] Histórico de doações.
 - [ ] Ajuda e segurança.
 - [ ] Avaliações.
-- [ ] Painel administrativo.
-- [ ] Registro e gerenciamento de denúncias.
+- [ ] Implementação do painel administrativo, incluindo consulta e gerenciamento das denúncias.
+- [ ] Bloqueio de usuários e restrição de interações entre contas bloqueadas.
 - [ ] Testes de interface em diferentes dispositivos Android.
 - [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
 
@@ -811,8 +893,8 @@ A análise estática com `flutter analyze` foi executada sem identificar erros. 
 - Implementar filtro de distância com cálculo geográfico.
 - Desenvolver histórico e acompanhamento de doações.
 - Implementar ajuda e segurança.
-- Desenvolver avaliações, denúncias e bloqueio.
-- Implementar o painel administrativo.
+- Desenvolver avaliações e bloqueio de usuários.
+- Implementar o painel administrativo para consulta e gerenciamento das denúncias.
 - Aprimorar a segurança da infraestrutura e do upload de imagens.
 
 A ordem das etapas poderá ser ajustada conforme a evolução do desenvolvimento.
