@@ -26,6 +26,10 @@ A tela **Interessados** apresenta as pessoas interessadas, incluindo nome, cidad
 
 O gerenciamento dos estados da publicação está implementado, incluindo as situações disponível, em andamento e concluída, com possibilidade de reabrir uma doação concluída.
 
+O histórico de doações está implementado. A tela permite consultar separadamente as doações feitas e as doações recebidas pelo usuário autenticado. Cada conclusão gera um registro na coleção `doacoes` do Cloud Firestore, preservando informações da publicação, do doador, do beneficiário e da data de conclusão. Quando uma doação é reaberta, o registro correspondente recebe o status `reaberta`, mantendo o histórico da conclusão desfeita. Caso a doação seja concluída novamente, um novo registro é criado, sem sobrescrever o anterior.
+
+A tela também apresenta o botão "Avaliar" nas doações concluídas. Por enquanto, o botão está implementado somente na parte visual, sem funcionalidade de avaliação.
+
 A comunicação entre usuários está implementada. Cada pessoa interessada pode conversar individualmente com o doador da publicação, independentemente de ter sido escolhida para receber a doação. As conversas são armazenadas no Cloud Firestore, com envio e recebimento de mensagens em tempo real.
 
 A tela Mensagens apresenta as conversas do usuário autenticado, incluindo o nome do outro participante, a publicação relacionada e a prévia da última mensagem.
@@ -325,6 +329,31 @@ A opção Mensagens abre a `ConversasScreen`, que apresenta as conversas do usu�
 
 A navegação também permite retornar às demais áreas do aplicativo sem perder a organização das telas.
 
+### 14. Histórico de doações
+
+A `HistoricoDoacoesScreen` permite que o usuário autenticado consulte o histórico das doações realizadas e recebidas.
+
+Funcionalidades implementadas:
+
+- Consulta separada de doações feitas e doações recebidas.
+- Exibição do título e da imagem da publicação.
+- Exibição do nome do beneficiário nas doações feitas.
+- Exibição do nome do doador nas doações recebidas.
+- Exibição da cidade do beneficiário nas doações feitas.
+- Exibição da data de conclusão.
+- Identificação do status da doação.
+- Registro da data de reabertura quando uma conclusão é desfeita.
+- Atualização do histórico em tempo real utilizando `snapshots()`.
+- Acesso à tela pela opção "Histórico de doações" no perfil.
+
+Cada conclusão gera um documento na coleção `doacoes` do Cloud Firestore. O mesmo registro é disponibilizado no histórico do doador e do beneficiário.
+
+Quando uma doação é reaberta, o registro anterior permanece no histórico com o status `reaberta`, identificado na interface como "Conclusão desfeita". Caso a publicação seja concluída novamente, um novo documento é criado, preservando o registro anterior.
+
+A consulta das doações utiliza o UID do usuário autenticado e a lista de participantes armazenada em cada documento.
+
+Os cards também apresentam o botão "Avaliar" nas doações com status `concluida`. Atualmente, o botão está implementado somente visualmente, sem funcionalidade de avaliação.
+
 ## Autenticação e armazenamento
 
 ### Firebase Authentication
@@ -335,7 +364,7 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, das conversas, das mensagens e das denúncias.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, dos registros de doações concluídas, das conversas, das mensagens e das denúncias.
 
 #### Coleção `usuarios`
 
@@ -372,7 +401,10 @@ Os principais campos são:
 | `imagens` | Lista de URLs das imagens armazenadas no Cloudinary |
 | `nomeDoador` | Nome público do usuário responsável pela publicação |
 | `usuarioEscolhidoId` | UID do usuário escolhido para receber a doação |
-| `dataConclusao` | Data e horário da conclusão da doação |
+| `dataConclusao` | Data e horário da conclusão atual da doação |
+| `usuarioEscolhidoNome` | Nome público do usuário escolhido para receber a doação |
+| `usuarioEscolhidoCidade` | Cidade do usuário escolhido para receber a doação |
+| `doacaoAtualId` | Identificador do registro correspondente à conclusão atual na coleção `doacoes` |
 
 #### Subcoleção `interesses`
 
@@ -414,6 +446,41 @@ A tela Minhas publicações utiliza uma consulta em tempo real das publicações
 A consulta combinada utilizada na Home requer um índice composto configurado no Cloud Firestore.
 
 O campo `nomeDoador` armazena o nome público do usuário responsável pela publicação. Esse valor é obtido do perfil do usuário autenticado durante o cadastro e registrado diretamente no documento da publicação.
+
+#### Coleção `doacoes`
+
+Cada conclusão de doação gera um documento na coleção `doacoes`, utilizando um identificador automático gerado pelo Cloud Firestore.
+
+Os registros armazenam informações da publicação e dos participantes como um histórico da conclusão, permitindo que tanto o doador quanto o beneficiário consultem a mesma doação.
+
+Os principais campos são:
+
+| Campo | Descrição |
+|---|---|
+| `publicacaoId` | Identificador da publicação relacionada |
+| `tituloPublicacao` | Título da publicação no momento da conclusão |
+| `imagemPublicacao` | URL da imagem da publicação no momento da conclusão, quando disponível |
+| `doadorId` | UID do usuário responsável pela doação |
+| `doadorNome` | Nome público do doador |
+| `beneficiarioId` | UID do usuário escolhido para receber a doação |
+| `beneficiarioNome` | Nome público do beneficiário |
+| `beneficiarioCidade` | Cidade do beneficiário |
+| `participantes` | Lista contendo os UIDs do doador e do beneficiário |
+| `dataConclusao` | Data e horário da conclusão, definidos pelo servidor |
+| `status` | Situação do registro: `concluida` ou `reaberta` |
+| `dataReabertura` | Data e horário da reabertura, definidos pelo servidor, quando aplicável |
+
+O `DoacaoControl` é responsável por registrar as conclusões, reabrir doações e acompanhar os históricos de doações feitas e recebidas.
+
+A conclusão é realizada em uma transação do Firestore, registrando o documento em `doacoes` e atualizando a publicação para apontar para o novo registro por meio de `doacaoAtualId`.
+
+Quando uma doação é reaberta, o registro correspondente recebe o status `reaberta` e a data de reabertura. O histórico não é excluído. A publicação retorna ao estado `ativa`, removendo os dados da escolha e da conclusão atual.
+
+Caso a mesma publicação seja concluída novamente, um novo documento é criado na coleção `doacoes`. Dessa forma, cada conclusão permanece registrada separadamente.
+
+Os históricos são consultados por meio do campo `participantes`, permitindo que o doador visualize as doações feitas e o beneficiário visualize as doações recebidas.
+
+Os registros de doações não são excluídos automaticamente quando uma publicação é removida, preservando as informações históricas da conclusão.
 
 #### Coleção `conversas`
 
@@ -492,7 +559,7 @@ Os documentos são criados com status inicial `pendente`. A consulta e o gerenci
 
 ### Regras de segurança
 
-O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `conversas`, `denuncias` e às subcoleções `interesses` e `mensagens`.
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `doacoes`, `conversas`, `denuncias` e às subcoleções `interesses` e `mensagens`.
 
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
@@ -522,6 +589,20 @@ A subcoleção `interesses` possui regras específicas:
 - O usuário pode cancelar somente o próprio interesse.
 - Validação da cidade conforme o perfil do usuário.
 - Limitação da mensagem a até 250 caracteres.
+
+A coleção `doacoes` possui regras específicas:
+
+- Somente usuários autenticados podem criar registros de doação.
+- O doador registrado deve corresponder ao usuário autenticado.
+- O beneficiário deve ser diferente do doador.
+- Os participantes registrados devem corresponder aos UIDs do doador e do beneficiário.
+- A criação do registro deve estar vinculada a uma publicação cuja conclusão esteja sendo realizada na mesma operação.
+- A publicação deve apontar para o registro criado por meio do campo `doacaoAtualId`.
+- Somente o doador e o beneficiário podem consultar os registros dos quais participam.
+- Somente o doador pode reabrir um registro de doação concluída.
+- A reabertura deve ocorrer em conjunto com a atualização correspondente da publicação.
+- A atualização é restrita aos campos `status` e `dataReabertura`.
+- A exclusão dos registros de doações é bloqueada.
 
 A coleção `conversas` e sua subcoleção `mensagens` possuem regras específicas:
 
@@ -596,6 +677,7 @@ desapegai/
 │   │   ├── cadastro_control.dart
 │   │   ├── chat_control.dart
 │   │   ├── denuncia_control.dart
+│   │   ├── doacao_control.dart
 │   │   ├── interesse_control.dart
 │   │   ├── login_control.dart
 │   │   ├── publicacao_control.dart
@@ -605,6 +687,7 @@ desapegai/
 │   ├── model/
 │   │   ├── conversa.dart
 │   │   ├── denuncia.dart
+│   │   ├── doacao.dart
 │   │   ├── interessado.dart
 │   │   ├── mensagem.dart
 │   │   ├── publicacao.dart
@@ -617,6 +700,7 @@ desapegai/
 │   │   ├── conversas_screen.dart
 │   │   ├── detalhes_publicacao_screen.dart
 │   │   ├── edit_profile_screen.dart
+│   │   ├── historico_doacoes_screen.dart
 │   │   ├── home_screen.dart
 │   │   ├── interessados_screen.dart
 │   │   ├── login_screen.dart
@@ -665,6 +749,7 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Botão Editar perfil | `EditProfileScreen` |
 | Seleção de publicação na Home ou em Minhas | `DetalhesPublicacaoScreen` |
 | Botão Ver interessados | `InteressadosScreen` |
+| Opção Histórico de doações na tela de perfil | `HistoricoDoacoesScreen` |
 
 A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado e o perfil correspondente está disponível no Firestore. Caso o perfil não exista, o aplicativo apresenta a `CompletarPerfilScreen` para sua recuperação.
 
@@ -674,7 +759,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, das conversas, das mensagens e das denúncias.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos registros de doações, das conversas, das mensagens e das denúncias.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -869,15 +954,25 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Validação dos dados registrados na coleção `denuncias`.
 - [x] Registro da data de criação pelo servidor.
 - [x] Definição do status inicial da denúncia como `pendente`.
+- [x] Registro de uma conclusão na coleção `doacoes`.
+- [x] Atualização do registro histórico para `reaberta` ao desfazer uma conclusão.
+- [x] Preservação do registro anterior após a reabertura.
+- [x] Criação de um novo registro ao concluir novamente uma publicação.
+- [x] Associação do registro ao doador e ao beneficiário.
+- [x] Consulta do histórico de doações feitas pela conta do doador.
+- [x] Consulta do histórico de doações recebidas pela conta do beneficiário.
+- [x] Exibição dos registros concluídos e reabertos no histórico.
+- [x] Exibição das informações da publicação e dos participantes nos cards.
+- [x] Integração da tela de histórico com a opção correspondente no perfil.
+- [x] Aplicação das regras de segurança da coleção `doacoes`.
 
-A análise estática com `flutter analyze` foi executada sem identificar erros. Na última execução, foram apresentados 2 warnings e 28 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
+A análise estática com `flutter analyze` foi executada sem identificar erros. Na última execução, foram apresentados 2 warnings e 29 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
 
 ## Funcionalidades pendentes
 
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
 - [ ] Notificações relacionadas aos interesses e às etapas da doação.
 - [ ] Implementação de filtro de distância com cálculo geográfico real.
-- [ ] Histórico de doações.
 - [ ] Ajuda e segurança.
 - [ ] Avaliações.
 - [ ] Implementação do painel administrativo, incluindo consulta e gerenciamento das denúncias.
@@ -891,7 +986,6 @@ A análise estática com `flutter analyze` foi executada sem identificar erros. 
 
 - Implementar notificações relacionadas às publicações e às doações.
 - Implementar filtro de distância com cálculo geográfico.
-- Desenvolver histórico e acompanhamento de doações.
 - Implementar ajuda e segurança.
 - Desenvolver avaliações e bloqueio de usuários.
 - Implementar o painel administrativo para consulta e gerenciamento das denúncias.
