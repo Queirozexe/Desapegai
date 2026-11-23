@@ -11,6 +11,7 @@ import 'profile_screen.dart';
 import 'cadastro_publicacao_screen.dart';
 import 'detalhes_publicacao_screen.dart';
 import 'minhas_publicacoes_screen.dart';
+import 'conversas_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -485,6 +486,17 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(
                 builder: (context) =>
                 const CadastroPublicacaoScreen(),
+              ),
+                  (route) => route.isFirst,
+            );
+            return;
+          }
+
+          if (index == 3) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ConversasScreen(),
               ),
                   (route) => route.isFirst,
             );

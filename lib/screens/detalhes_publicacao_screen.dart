@@ -5,6 +5,8 @@ import '../model/publicacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
 import '../controller/interesse_control.dart';
+import '../controller/chat_control.dart';
+import 'chat_screen.dart';
 
 class DetalhesPublicacaoScreen extends StatefulWidget {
   final Publicacao publicacao;
@@ -22,7 +24,9 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   bool _carregandoInteresse = true;
   bool _processandoInteresse = false;
   bool _erroCarregamentoInteresse = false;
+  bool _abrindoConversa = false;
 
+  late final ChatControl _chatControl;
   late final InteresseControl _interesseControl;
 
   Publicacao get publicacao => widget.publicacao;
@@ -38,11 +42,55 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
     super.initState();
 
     _interesseControl = InteresseControl();
+    _chatControl = ChatControl();
 
     if (!_ehMinhaPublicacao) {
       _carregarInteresse();
     } else {
       _carregandoInteresse = false;
+    }
+  }
+
+  Future<void> _abrirConversa() async {
+    if (_abrindoConversa || _processandoInteresse) return;
+
+    final usuario = FirebaseAuth.instance.currentUser;
+
+    if (usuario == null) {
+      _aviso('Você precisa estar autenticado para conversar.');
+      return;
+    }
+
+    setState(() {
+      _abrindoConversa = true;
+    });
+
+    try {
+      final conversa = await _chatControl.criarOuObterConversa(
+        publicacaoId: _obterPublicacaoId(),
+        interessadoId: usuario.uid,
+      );
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            conversa: conversa,
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      _aviso('Não foi possível abrir a conversa. Tente novamente.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _abrindoConversa = false;
+        });
+      }
     }
   }
 
@@ -592,7 +640,7 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: () => _cancelarInteresse(),
+            onPressed: _abrindoConversa ? null : () => _cancelarInteresse(),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.green,
               side: const BorderSide(color: AppColors.green),
@@ -604,13 +652,9 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: Botoes(
-            'Conversar',
-            onPressed: () {
-              _aviso(
-                'A área de mensagens será implementada em uma próxima etapa.',
-              );
-            },
-          ),
+            _abrindoConversa ? 'Abrindo...' : 'Conversar',
+            onPressed: _abrindoConversa ? null : _abrirConversa,
+          )
         ),
       ],
     );
