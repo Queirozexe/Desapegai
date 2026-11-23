@@ -6,7 +6,6 @@ service cloud.firestore {
     match /usuarios/{userId} {
       allow create: if request.auth != null
                     && request.auth.uid == userId
-                    && request.resource.data.uid == request.auth.uid
                     && request.resource.data.keys().hasOnly([
                       'uid',
                       'nome',
@@ -20,10 +19,48 @@ service cloud.firestore {
                       'email',
                       'cidade',
                       'sobreMim'
-                    ]);
+                    ])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.nome is string
+                    && request.resource.data.nome.size() > 0
+                    && request.resource.data.email is string
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.cidade is string
+                    && request.resource.data.cidade.size() > 0
+                    && request.resource.data.sobreMim is string;
 
-      allow get, update: if request.auth != null
-                         && request.auth.uid == userId;
+      allow get: if request.auth != null
+                 && request.auth.uid == userId;
+
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly([
+                      'uid',
+                      'nome',
+                      'email',
+                      'cidade',
+                      'sobreMim'
+                    ])
+                    && request.resource.data.keys().hasAll([
+                      'uid',
+                      'nome',
+                      'email',
+                      'cidade',
+                      'sobreMim'
+                    ])
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      'nome',
+                      'cidade',
+                      'sobreMim'
+                    ])
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.email == resource.data.email
+                    && request.resource.data.nome is string
+                    && request.resource.data.nome.size() > 0
+                    && request.resource.data.cidade is string
+                    && request.resource.data.cidade.size() > 0
+                    && request.resource.data.sobreMim is string;
 
       allow list, delete: if false;
     }
