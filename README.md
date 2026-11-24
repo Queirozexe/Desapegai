@@ -16,7 +16,7 @@ As regras de segurança dos perfis restringem as operações ao próprio usuári
 
 O cadastro, a edição e a remoção de publicações estão implementados. O aplicativo permite cadastrar itens para doação gratuita, armazenar suas informações no Firestore e enviar imagens ao Cloudinary.
 
-A tela inicial está integrada ao Firestore, exibindo publicações disponíveis em tempo real. A listagem possui busca, filtros por categoria e imagens armazenadas no Cloudinary.
+A tela inicial está integrada ao Firestore, exibindo publicações disponíveis em tempo real. A listagem possui busca, filtros por categoria e distância geográfica, além de imagens armazenadas no Cloudinary.
 
 A tela de detalhes permite visualizar as informações completas de uma publicação, navegar pelas imagens, consultar os dados públicos do doador e demonstrar ou cancelar interesse. Ao demonstrar interesse, o usuário pode enviar uma mensagem personalizada e iniciar uma conversa com o doador.
 
@@ -90,8 +90,10 @@ A `HomeScreen` apresenta:
 - Cidade informada no cadastro, carregada do Cloud Firestore.
 - Indicador de carregamento e tratamento de falhas na consulta do perfil.
 - Campo de busca de publicações.
+- Painel de filtros de distância acessível pelo ícone de ajustes ao lado da pesquisa.
+- Opções de distância máxima: 5, 10, 25 e 50 km, além da opção Qualquer.
 - Filtros por categoria na ordem: Todos, Roupas, Livros, Móveis, Calçados, Utensílios, Eletrônicos e Outros.
-- Exibição dos filtros somente quando existe pelo menos uma publicação disponível na respectiva categoria.
+- Exibição dos filtros de categoria somente quando existe pelo menos uma publicação disponível na respectiva categoria.
 - Listagem de publicações reais armazenadas no Cloud Firestore.
 - Exibição do título, categoria, estado de conservação e cidade de cada publicação.
 - Exibição da primeira imagem cadastrada na publicação.
@@ -105,7 +107,15 @@ São exibidas somente publicações com status `ativa`, excluindo as publicaçõ
 
 A busca é realizada sobre os dados recebidos do Firestore e considera título, descrição, categoria e cidade. Os filtros de categoria seguem uma ordem predefinida e são exibidos dinamicamente conforme as categorias presentes nas publicações disponíveis.
 
-O filtro de distância exibido na interface ainda não possui cálculo geográfico implementado.
+O filtro de distância utiliza a localização atual do dispositivo, obtida pelo `LocalizacaoService`, e calcula a distância entre o usuário e as coordenadas de cada publicação por meio do método `Geolocator.distanceBetween`.
+
+Como as coordenadas das publicações são armazenadas com duas casas decimais, as distâncias calculadas são estimativas e podem apresentar diferenças de algumas centenas de metros em relação à distância real, especialmente quando a publicação está próxima do limite selecionado.
+
+As opções de distância máxima são 5, 10, 25 e 50 km. A opção `Qualquer` desativa o filtro geográfico e permite visualizar todas as publicações disponíveis, inclusive aquelas que não possuem coordenadas cadastradas.
+
+O filtro de distância é combinado com a pesquisa por texto e a categoria selecionada. Quando uma distância específica está ativa, publicações sem coordenadas não são exibidas, pois não é possível calcular sua distância geográfica.
+
+A localização atual do usuário é mantida somente em memória durante a utilização do filtro, sem ser armazenada no Cloud Firestore.
 
 ### 6. Tela de perfil
 
@@ -146,6 +156,7 @@ Funcionalidades implementadas:
 - Seleção do estado de conservação.
 - Preenchimento da localização.
 - Obtenção da localização atual por GPS.
+- Armazenamento de coordenadas geográficas aproximadas para utilização no filtro de distância.
 - Seleção de até três imagens pela galeria.
 - Obrigatoriedade de pelo menos uma imagem.
 - Pré-visualização e remoção das imagens selecionadas.
@@ -448,6 +459,7 @@ Os principais campos são:
 | `usuarioEscolhidoNome` | Nome público do usuário escolhido para receber a doação |
 | `usuarioEscolhidoCidade` | Cidade do usuário escolhido para receber a doação |
 | `doacaoAtualId` | Identificador do registro correspondente à conclusão atual na coleção `doacoes` |
+| `coordenadas` | Campo opcional do tipo `GeoPoint`, contendo latitude e longitude aproximadas da publicação, arredondadas para duas casas decimais |
 
 #### Subcoleção `interesses`
 
@@ -633,6 +645,7 @@ Na coleção `publicacoes`, as regras controlam a criação, leitura, atualizaç
 - Permissão de leitura de documentos individuais para publicações ativas, para o próprio autor, para o usuário escolhido ou para usuários que possuam um registro de interesse na publicação.
 - As consultas de listagem seguem critérios específicos definidos nas regras de segurança.
 - Restrição das alterações aos campos permitidos.
+- Validação do campo opcional `coordenadas`, aceitando somente valores do tipo `GeoPoint` quando informado.
 
 A subcoleção `interesses` possui regras específicas:
 
@@ -709,11 +722,22 @@ Não armazene chaves secretas do Cloudinary no aplicativo Flutter ou no reposit�
 
 ## Serviço de localização
 
-O serviço `LocalizacaoService` utiliza o Geolocator para obter as coordenadas geográficas do dispositivo e o Geocoding para converter essas coordenadas em informações de localização.
+O serviço `LocalizacaoService` utiliza o Geolocator para obter as coordenadas geográficas do dispositivo e o Geocoding para converter essas coordenadas em informações de endereço.
 
-A localização obtida é utilizada no preenchimento do campo correspondente durante o cadastro de publicações.
+O serviço é utilizado em duas situações:
 
-O aplicativo solicita as permissões de localização necessárias no Android.
+- No cadastro e na edição de publicações, para preencher o endereço e armazenar coordenadas aproximadas.
+- Na Home, para obter as coordenadas atuais do usuário e realizar os cálculos do filtro de distância.
+
+As coordenadas das publicações são arredondadas para duas casas decimais antes de serem armazenadas no Cloud Firestore, reduzindo a precisão da localização registrada e preservando a privacidade dos usuários.
+
+A localização atual utilizada pelo filtro é mantida somente em memória e não é armazenada no banco de dados.
+
+O cálculo das distâncias é realizado pelo método `Geolocator.distanceBetween`, comparando as coordenadas atuais do usuário com as coordenadas aproximadas das publicações.
+
+O serviço também verifica se a localização do dispositivo está ativada e solicita as permissões necessárias. Falhas na obtenção da localização são tratadas e apresentadas ao usuário.
+
+Publicações antigas que não possuem coordenadas continuam compatíveis com o sistema e podem ser visualizadas normalmente quando o filtro de distância está desativado.
 
 ## Estrutura do projeto
 
@@ -939,6 +963,20 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Upload de imagens para o Cloudinary.
 - [x] Armazenamento das URLs das imagens no Firestore.
 - [x] Obtenção da localização por GPS.
+- [x] Cadastro de publicações com coordenadas geográficas.
+- [x] Cadastro de publicações sem coordenadas, utilizando endereço manual.
+- [x] Armazenamento das coordenadas das publicações como `GeoPoint` no Firestore.
+- [x] Preservação das coordenadas ao editar outros dados da publicação.
+- [x] Remoção das coordenadas quando o endereço da publicação é alterado manualmente.
+- [x] Compatibilidade com publicações antigas sem coordenadas.
+- [x] Obtenção da localização atual para cálculo de distância.
+- [x] Filtro geográfico com distância máxima de 5 km.
+- [x] Filtro geográfico com distância máxima de 10 km.
+- [x] Filtro geográfico com distância máxima de 25 km.
+- [x] Filtro geográfico com distância máxima de 50 km.
+- [x] Opção Qualquer, sem restrição de distância.
+- [x] Combinação do filtro de distância com a pesquisa por texto.
+- [x] Combinação do filtro de distância com as categorias.
 - [x] Validação das regras de segurança para publicações.
 - [x] Listagem de publicações reais na Home.
 - [x] Exclusão das próprias publicações da listagem da Home.
@@ -1043,12 +1081,11 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Abertura da conversa correta ao selecionar uma notificação de mensagem.
 - [x] Validação das regras de segurança da subcoleção `notificacoes`.
 
-A análise estática com `flutter analyze` foi executada sem apresentar problemas.
+A análise estática com `flutter analyze` foi executada durante o desenvolvimento. Permanecem apontamentos preexistentes no projeto, incluindo avisos de depreciação e sugestões de lint. Nenhum novo apontamento relacionado à implementação do filtro de distância foi identificado nas análises realizadas.
 
 ## Funcionalidades pendentes
 
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
-- [ ] Implementação de filtro de distância com cálculo geográfico real.
 - [ ] Ajuda e segurança.
 - [ ] Avaliações.
 - [ ] Implementação do painel administrativo, incluindo consulta e gerenciamento das denúncias.
@@ -1060,7 +1097,6 @@ A análise estática com `flutter analyze` foi executada sem apresentar problema
 
 ### Funcionalidades posteriores
 
-- Implementar filtro de distância com cálculo geográfico.
 - Implementar ajuda e segurança.
 - Desenvolver avaliações e bloqueio de usuários.
 - Implementar o painel administrativo para consulta e gerenciamento das denúncias.
