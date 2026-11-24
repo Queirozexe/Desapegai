@@ -36,6 +36,8 @@ A tela Mensagens apresenta as conversas do usuário autenticado, incluindo o nom
 
 O sistema de denúncias está implementado. Os usuários podem denunciar publicações e também denunciar outros participantes de uma conversa, permitindo que tanto o doador quanto o interessado realizem denúncias. Os registros são armazenados no Cloud Firestore para futura análise administrativa.
 
+O sistema de notificações está implementado. O aplicativo gera notificações internas para eventos relacionados a interesses, escolha de beneficiários, conclusão e reabertura de doações e envio de mensagens. As notificações são armazenadas no Cloud Firestore, vinculadas ao usuário destinatário, e atualizadas em tempo real. A Home apresenta um indicador da quantidade de notificações não lidas, e o usuário pode acessar a tela de notificações, visualizar os registros e marcá-los como lidos.
+
 ## Funcionalidades implementadas
 
 ### 1. Cadastro de usuários
@@ -354,6 +356,35 @@ A consulta das doações utiliza o UID do usuário autenticado e a lista de part
 
 Os cards também apresentam o botão "Avaliar" nas doações com status `concluida`. Atualmente, o botão está implementado somente visualmente, sem funcionalidade de avaliação.
 
+### 15. Notificações
+
+A `NotificacoesScreen` permite que o usuário autenticado consulte as notificações relacionadas às suas atividades no Desapegaí.
+
+Funcionalidades implementadas:
+
+- Listagem das notificações recebidas pelo usuário autenticado.
+- Atualização em tempo real utilizando `snapshots()`.
+- Ordenação das notificações da mais recente para a mais antiga.
+- Identificação visual de notificações lidas e não lidas.
+- Marcação automática como lida ao selecionar uma notificação.
+- Exibição de título, mensagem e data de criação.
+- Indicador da quantidade de notificações não lidas na Home.
+- Navegação para a tela correspondente ao evento da notificação.
+
+O sistema contempla cinco tipos de notificações:
+
+- `novo_interesse`: enviada ao doador quando uma pessoa demonstra interesse em uma publicação.
+- `interessado_escolhido`: enviada ao beneficiário quando o doador o escolhe para receber a doação.
+- `doacao_concluida`: enviada ao beneficiário quando o doador conclui a doação.
+- `doacao_reaberta`: enviada ao beneficiário anterior quando o doador reabre uma doação concluída.
+- `nova_mensagem`: enviada ao outro participante quando uma nova mensagem é registrada em uma conversa.
+
+As notificações são criadas junto às operações correspondentes no Cloud Firestore, utilizando transações para manter os registros relacionados ao evento.
+
+Ao selecionar uma notificação, o aplicativo identifica seu tipo e direciona o usuário para a tela correspondente. As notificações de novo interesse abrem a `InteressadosScreen`, as notificações de mensagem abrem a `ChatScreen` e as demais notificações relacionadas a publicações abrem a `DetalhesPublicacaoScreen`.
+
+O sistema utiliza notificações internas armazenadas no Firestore, sem implementação de notificações push externas.
+
 ## Autenticação e armazenamento
 
 ### Firebase Authentication
@@ -364,7 +395,7 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, dos registros de doações concluídas, das conversas, das mensagens e das denúncias.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, dos registros de doações concluídas, das conversas, das mensagens, das notificações e das denúncias.
 
 #### Coleção `usuarios`
 
@@ -382,6 +413,18 @@ Cada documento utiliza o próprio UID como identificador e armazena os seguintes
 
 O `UsuarioControl` é responsável por consultar e atualizar os dados pessoais do usuário no Firestore.
 
+#### Subcoleção `notificacoes`
+
+Cada usuário possui uma subcoleção `notificacoes` dentro do próprio documento na coleção `usuarios`. Ela armazena as notificações destinadas à conta autenticada.
+
+A estrutura é organizada da seguinte forma:
+
+```text
+usuarios/
+  UID_DO_USUARIO/
+    notificacoes/
+      ID_DA_NOTIFICACAO/
+```
 #### Coleção `publicacoes`
 
 Cada publicação é armazenada como um documento na coleção `publicacoes`.
@@ -559,13 +602,26 @@ Os documentos são criados com status inicial `pendente`. A consulta e o gerenci
 
 ### Regras de segurança
 
-O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `doacoes`, `conversas`, `denuncias` e às subcoleções `interesses` e `mensagens`.
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `doacoes`, `conversas`, `denuncias` e às subcoleções `interesses`, `mensagens` e `notificacoes`.
 
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
 Na coleção `usuarios`, as regras restringem a consulta e a atualização do documento ao próprio usuário. A listagem geral e a exclusão de perfis são bloqueadas.
 
 As regras da coleção `usuarios` validam os campos obrigatórios durante a criação do perfil. As atualizações são restritas aos campos `nome`, `cidade` e `sobreMim`, impedindo alterações no UID e no e-mail, bem como a inclusão de campos não previstos no modelo.
+
+A subcoleção `notificacoes`, localizada dentro de `usuarios`, possui regras específicas:
+
+- Somente o proprietário da conta pode consultar e listar suas notificações.
+- A criação exige autenticação e validação dos dados do evento relacionado.
+- O remetente deve corresponder ao usuário autenticado.
+- O destinatário deve corresponder ao proprietário da subcoleção.
+- Não é permitido criar notificações para o próprio remetente.
+- Os tipos de notificação são validados conforme os eventos permitidos pelo sistema.
+- O título possui limite de 100 caracteres e a mensagem possui limite de 300 caracteres.
+- A data de criação deve corresponder ao horário do servidor.
+- O usuário pode atualizar somente o campo `lida`, alterando seu valor de `false` para `true`.
+- A exclusão das notificações é bloqueada pelas regras atuais.
 
 Na coleção `publicacoes`, as regras controlam a criação, leitura, atualização e exclusão dos documentos, incluindo:
 
@@ -680,6 +736,7 @@ desapegai/
 │   │   ├── doacao_control.dart
 │   │   ├── interesse_control.dart
 │   │   ├── login_control.dart
+│   │   ├── notificacao_control.dart
 │   │   ├── publicacao_control.dart
 │   │   ├── recuperacao_senha_control.dart
 │   │   ├── sessao_control.dart
@@ -690,6 +747,7 @@ desapegai/
 │   │   ├── doacao.dart
 │   │   ├── interessado.dart
 │   │   ├── mensagem.dart
+│   │   ├── notificacao.dart
 │   │   ├── publicacao.dart
 │   │   └── usuario.dart
 │   ├── screens/
@@ -705,6 +763,7 @@ desapegai/
 │   │   ├── interessados_screen.dart
 │   │   ├── login_screen.dart
 │   │   ├── minhas_publicacoes_screen.dart
+│   │   ├── notificacoes_screen.dart
 │   │   ├── profile_screen.dart
 │   │   ├── recover_password_screen.dart
 │   │   └── register_screen.dart
@@ -750,6 +809,10 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Seleção de publicação na Home ou em Minhas | `DetalhesPublicacaoScreen` |
 | Botão Ver interessados | `InteressadosScreen` |
 | Opção Histórico de doações na tela de perfil | `HistoricoDoacoesScreen` |
+| Ícone de notificações na Home | `NotificacoesScreen` |
+| Notificação de novo interesse | `InteressadosScreen` |
+| Notificação de nova mensagem | `ChatScreen` |
+| Notificações de escolha, conclusão e reabertura | `DetalhesPublicacaoScreen` |
 
 A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado e o perfil correspondente está disponível no Firestore. Caso o perfil não exista, o aplicativo apresenta a `CompletarPerfilScreen` para sua recuperação.
 
@@ -759,7 +822,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos registros de doações, das conversas, das mensagens e das denúncias.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos registros de doações, das conversas, das mensagens, das notificações e das denúncias.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -965,13 +1028,26 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Exibição das informações da publicação e dos participantes nos cards.
 - [x] Integração da tela de histórico com a opção correspondente no perfil.
 - [x] Aplicação das regras de segurança da coleção `doacoes`.
+- [x] Criação de notificações de novo interesse.
+- [x] Criação de notificações após a escolha de um beneficiário.
+- [x] Criação de notificações após a conclusão de uma doação.
+- [x] Criação de notificações após a reabertura de uma doação.
+- [x] Criação de notificações após o envio de mensagens.
+- [x] Verificação de que o remetente não recebe notificação da própria mensagem.
+- [x] Consulta das notificações pela conta destinatária.
+- [x] Atualização da lista de notificações em tempo real.
+- [x] Atualização do contador de notificações não lidas na Home.
+- [x] Marcação de notificações como lidas.
+- [x] Navegação para os destinos correspondentes a cada notificação.
+- [x] Abertura da tela de interessados ao selecionar uma notificação de novo interesse.
+- [x] Abertura da conversa correta ao selecionar uma notificação de mensagem.
+- [x] Validação das regras de segurança da subcoleção `notificacoes`.
 
-A análise estática com `flutter analyze` foi executada sem identificar erros. Na última execução, foram apresentados 2 warnings e 29 informações do analisador, principalmente relacionados à depreciação de imports e sugestões de melhoria no código.
+A análise estática com `flutter analyze` foi executada sem apresentar problemas.
 
 ## Funcionalidades pendentes
 
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
-- [ ] Notificações relacionadas aos interesses e às etapas da doação.
 - [ ] Implementação de filtro de distância com cálculo geográfico real.
 - [ ] Ajuda e segurança.
 - [ ] Avaliações.
@@ -984,7 +1060,6 @@ A análise estática com `flutter analyze` foi executada sem identificar erros. 
 
 ### Funcionalidades posteriores
 
-- Implementar notificações relacionadas às publicações e às doações.
 - Implementar filtro de distância com cálculo geográfico.
 - Implementar ajuda e segurança.
 - Desenvolver avaliações e bloqueio de usuários.
