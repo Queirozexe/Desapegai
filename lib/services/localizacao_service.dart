@@ -12,10 +12,32 @@ class LocalizacaoException implements Exception {
   String toString() => mensagem;
 }
 
+class CoordenadasLocalizacao {
+  final double latitude;
+  final double longitude;
+
+  const CoordenadasLocalizacao({
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
+class LocalizacaoResultado {
+  final String endereco;
+  final double latitude;
+  final double longitude;
+
+  const LocalizacaoResultado({
+    required this.endereco,
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
 class LocalizacaoService {
   final Geocoding _geocoding = Geocoding();
 
-  Future<String> obterLocalizacao() async {
+  Future<Position> _obterPosicaoAtual() async {
     final servicoAtivado = await Geolocator.isLocationServiceEnabled();
 
     if (!servicoAtivado) {
@@ -45,13 +67,32 @@ class LocalizacaoService {
     }
 
     try {
-      final posicao = await Geolocator.getCurrentPosition(
+      return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 15),
         ),
       );
+    } on TimeoutException {
+      throw LocalizacaoException(
+        'A localização demorou demais. Tente novamente.',
+      );
+    }
+  }
 
+  Future<CoordenadasLocalizacao> obterCoordenadasAtuais() async {
+    final posicao = await _obterPosicaoAtual();
+
+    return CoordenadasLocalizacao(
+      latitude: posicao.latitude,
+      longitude: posicao.longitude,
+    );
+  }
+
+  Future<LocalizacaoResultado> obterLocalizacao() async {
+    final posicao = await _obterPosicaoAtual();
+
+    try {
       final enderecos = await _geocoding.placemarkFromCoordinates(
         posicao.latitude,
         posicao.longitude,
@@ -93,7 +134,15 @@ class LocalizacaoService {
         );
       }
 
-      return partes.toSet().join(', ');
+      return LocalizacaoResultado(
+        endereco: partes.toSet().join(', '),
+        latitude: double.parse(
+          posicao.latitude.toStringAsFixed(2),
+        ),
+        longitude: double.parse(
+          posicao.longitude.toStringAsFixed(2),
+        ),
+      );
     } on TimeoutException {
       throw LocalizacaoException(
         'A localização demorou demais. Tente novamente.',

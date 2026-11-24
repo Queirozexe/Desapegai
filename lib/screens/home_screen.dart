@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:desapegai/theme/app_theme.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../controller/sessao_control.dart';
 import '../controller/usuario_control.dart';
@@ -7,6 +8,7 @@ import '../controller/publicacao_control.dart';
 import '../controller/notificacao_control.dart';
 import '../model/usuario.dart';
 import '../model/publicacao.dart';
+import '../services/localizacao_service.dart';
 
 import 'profile_screen.dart';
 import 'cadastro_publicacao_screen.dart';
@@ -25,7 +27,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _busca = '';
   String _categoria = 'Todos';
+  double? _distanciaMaximaKm;
+  bool _painelDistanciaAberto = false;
+  bool _buscandoLocalizacao = false;
 
+  CoordenadasLocalizacao? _coordenadasUsuario;
+
+  final LocalizacaoService _localizacaoService = LocalizacaoService();
   final SessaoControl _sessaoControl = SessaoControl();
   final UsuarioControl _usuarioControl = UsuarioControl();
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
@@ -61,6 +69,164 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _aviso('Não foi possível sair. Tente novamente.');
     }
+  }
+
+  Future<void> _selecionarDistancia(double? distancia) async {
+    if (distancia == null) {
+      setState(() {
+        _distanciaMaximaKm = null;
+        _coordenadasUsuario = null;
+      });
+      return;
+    }
+
+    if (_coordenadasUsuario != null) {
+      setState(() {
+        _distanciaMaximaKm = distancia;
+      });
+      return;
+    }
+
+    setState(() {
+      _buscandoLocalizacao = true;
+    });
+
+    try {
+      final coordenadas =
+      await _localizacaoService.obterCoordenadasAtuais();
+
+      if (!mounted) return;
+
+      setState(() {
+        _coordenadasUsuario = coordenadas;
+        _distanciaMaximaKm = distancia;
+      });
+    } on LocalizacaoException catch (e) {
+      if (!mounted) return;
+
+      _aviso(e.mensagem);
+    } catch (e, stackTrace) {
+      debugPrint('Erro ao obter localização para o filtro: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      _aviso('Não foi possível obter sua localização. Tente novamente.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _buscandoLocalizacao = false;
+        });
+      }
+    }
+  }
+
+  Widget _construirPainelDistancia() {
+    if (!_painelDistanciaAberto) {
+      return const SizedBox.shrink();
+    }
+
+    const distancias = <double?>[
+      5,
+      10,
+      25,
+      50,
+      null,
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFD9CBB9),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Distância máxima',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: distancias.map((distancia) {
+                final selecionada =
+                    _distanciaMaximaKm == distancia;
+
+                final texto = distancia == null
+                    ? 'Qualquer'
+                    : '${distancia.toInt()} km';
+
+                return ChoiceChip(
+                  label: Text(
+                    texto,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: selecionada
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                  ),
+                  selected: selecionada,
+                  showCheckmark: false,
+                  backgroundColor: Colors.white,
+                  selectedColor: AppColors.green,
+                  side: BorderSide(
+                    color: selecionada
+                        ? AppColors.green
+                        : const Color(0xFFD9CBB9),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  onSelected: _buscandoLocalizacao
+                      ? null
+                      : (selecionado) {
+                    if (selecionado) {
+                      _selecionarDistancia(distancia);
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+            if (_buscandoLocalizacao) ...[
+              const SizedBox(height: 12),
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Obtendo sua localização...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   String _normalizarTexto(String texto) {
@@ -243,7 +409,26 @@ class _HomeScreenState extends State<HomeScreen> {
               _normalizarTexto(publicacao.categoria).contains(termo) ||
               _normalizarTexto(publicacao.cidade).contains(termo);
 
-      return correspondeCategoria && correspondeBusca;
+      final coordenadasPublicacao = publicacao.coordenadas;
+      final coordenadasUsuario = _coordenadasUsuario;
+
+      final correspondeDistancia =
+          _distanciaMaximaKm == null ||
+              (
+                  coordenadasPublicacao != null &&
+                      coordenadasUsuario != null &&
+                      Geolocator.distanceBetween(
+                        coordenadasUsuario.latitude,
+                        coordenadasUsuario.longitude,
+                        coordenadasPublicacao.latitude,
+                        coordenadasPublicacao.longitude,
+                      ) <=
+                          _distanciaMaximaKm! * 1000
+              );
+
+      return correspondeCategoria &&
+          correspondeBusca &&
+          correspondeDistancia;
     }).toList();
 
     return Column(
@@ -300,7 +485,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Text(
               publicacoes.isEmpty
                   ? 'Ainda não há publicações disponíveis.'
-                  : 'Nenhum item corresponde à sua busca ou categoria.',
+                  : 'Nenhum item corresponde aos filtros selecionados.',
               textAlign: TextAlign.center,
             ),
           )
@@ -477,12 +662,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               ),
-                              OutlinedButton(
-                                onPressed: () => _aviso(
-                                  'Filtro de distância em desenvolvimento.',
-                                ),
-                                child: const Text('Até 10 km'),
-                              ),
                             ],
                           ),
                         ],
@@ -498,12 +677,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         _busca = valor;
                       });
                     },
-                    decoration: const InputDecoration(
-                      hintText: 'Buscar publicação, categoria, cidade...',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar: jaqueta, livros, cadeira...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        tooltip: _painelDistanciaAberto
+                            ? 'Fechar filtros'
+                            : 'Abrir filtros',
+                        icon: const Icon(Icons.tune),
+                        onPressed: () {
+                          setState(() {
+                            _painelDistanciaAberto = !_painelDistanciaAberto;
+                          });
+                        },
+                      ),
                     ),
                   ),
                 ),
+                _construirPainelDistancia(),
                 Expanded(
                   child: StreamBuilder<List<Publicacao>>(
                     stream: _publicacoesStream,

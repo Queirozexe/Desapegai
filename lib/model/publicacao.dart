@@ -9,6 +9,7 @@ class Publicacao {
   final String categoria;
   final String estadoConservacao;
   final String cidade;
+  final GeoPoint? coordenadas;
   final DateTime dataCriacao;
   final String status;
   final List<String> imagens;
@@ -27,6 +28,7 @@ class Publicacao {
     required this.categoria,
     required this.estadoConservacao,
     required this.cidade,
+    this.coordenadas,
     required this.dataCriacao,
     this.status = 'ativa',
     this.imagens = const [],
@@ -50,6 +52,10 @@ class Publicacao {
       'status': status,
       'imagens': imagens,
     };
+
+    if (coordenadas != null) {
+      dados['coordenadas'] = coordenadas!;
+    }
 
     if (usuarioEscolhidoId != null) {
       dados['usuarioEscolhidoId'] = usuarioEscolhidoId!;
@@ -84,16 +90,18 @@ class Publicacao {
       categoria: map['categoria'] as String,
       estadoConservacao: map['estadoConservacao'] as String,
       cidade: map['cidade'] as String,
+      coordenadas: map['coordenadas'] is GeoPoint
+          ? map['coordenadas'] as GeoPoint
+          : null,
       dataCriacao: (map['dataCriacao'] as Timestamp).toDate(),
       status: map['status'] as String? ?? 'ativa',
       imagens: List<String>.from(map['imagens'] ?? []),
       usuarioEscolhidoId: map['usuarioEscolhidoId'] as String?,
       usuarioEscolhidoNome: map['usuarioEscolhidoNome'] as String?,
       usuarioEscolhidoCidade: map['usuarioEscolhidoCidade'] as String?,
-      dataConclusao:
-          map['dataConclusao'] is Timestamp
-              ? (map['dataConclusao'] as Timestamp).toDate()
-              : null,
+      dataConclusao: map['dataConclusao'] is Timestamp
+          ? (map['dataConclusao'] as Timestamp).toDate()
+          : null,
       doacaoAtualId: map['doacaoAtualId'] as String?,
     );
   }
