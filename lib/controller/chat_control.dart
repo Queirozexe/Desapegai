@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../model/conversa.dart';
 import '../model/mensagem.dart';
+import 'notificacao_control.dart';
 
 class ChatControl {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificacaoControl _notificacaoControl = NotificacaoControl();
 
   String _obterUidUsuarioAtual() {
     final usuario = _auth.currentUser;
@@ -162,6 +164,36 @@ class ChatControl {
     return Conversa.fromMap(
       documentoFinal.data()!,
       documentoFinal.id,
+    );
+  }
+
+  Future<Conversa> buscarConversaPorId(String conversaId) async {
+    final usuarioId = _obterUidUsuarioAtual();
+
+    final id = _validarId(
+      conversaId,
+      'ID da conversa',
+    );
+
+    final documento = await _colecaoConversas().doc(id).get();
+
+    if (!documento.exists) {
+      throw Exception('Conversa não encontrada.');
+    }
+
+    final dados = documento.data()!;
+
+    final participantes = dados['participantes'] is List
+        ? List<String>.from(dados['participantes'])
+        : <String>[];
+
+    if (!participantes.contains(usuarioId)) {
+      throw Exception('Você não participa desta conversa.');
+    }
+
+    return Conversa.fromMap(
+      dados,
+      documento.id,
     );
   }
 
@@ -376,8 +408,7 @@ class ChatControl {
         .doc();
 
     await _firestore.runTransaction((transacao) async {
-      final documentoConversa =
-      await transacao.get(conversaRef);
+      final documentoConversa = await transacao.get(conversaRef);
 
       if (!documentoConversa.exists) {
         throw Exception('Conversa não encontrada.');
@@ -395,6 +426,44 @@ class ChatControl {
         );
       }
 
+      final doadorId = dados['doadorId'];
+      final interessadoId = dados['interessadoId'];
+      final doadorNome = dados['doadorNome'];
+      final interessadoNome = dados['interessadoNome'];
+      final tituloPublicacao = dados['tituloPublicacao'];
+      final publicacaoId = dados['publicacaoId'];
+
+      if (doadorId is! String ||
+          interessadoId is! String ||
+          doadorNome is! String ||
+          interessadoNome is! String ||
+          tituloPublicacao is! String ||
+          publicacaoId is! String) {
+        throw Exception('Dados da conversa inválidos.');
+      }
+
+      if (uid != doadorId && uid != interessadoId) {
+        throw Exception('Participante da conversa inválido.');
+      }
+
+      final destinatarioId =
+      uid == doadorId ? interessadoId : doadorId;
+
+      final remetenteNome =
+      uid == doadorId ? doadorNome : interessadoNome;
+
+      if (destinatarioId.trim().isEmpty ||
+          destinatarioId == uid ||
+          !participantes.contains(destinatarioId)) {
+        throw Exception('Destinatário da mensagem inválido.');
+      }
+
+      if (remetenteNome.trim().isEmpty ||
+          tituloPublicacao.trim().isEmpty ||
+          publicacaoId.trim().isEmpty) {
+        throw Exception('Dados da notificação inválidos.');
+      }
+
       transacao.set(mensagemRef, {
         'remetenteId': uid,
         'texto': mensagemTexto,
@@ -406,6 +475,21 @@ class ChatControl {
         'ultimaMensagemRemetenteId': uid,
         'dataUltimaMensagem': FieldValue.serverTimestamp(),
       });
+
+      _notificacaoControl.adicionarNaTransacao(
+        transacao: transacao,
+        tipo: 'nova_mensagem',
+        titulo: 'Nova mensagem',
+        mensagem:
+        '${remetenteNome.trim()} enviou uma mensagem sobre '
+            '"${tituloPublicacao.trim()}".',
+        remetenteId: uid,
+        remetenteNome: remetenteNome.trim(),
+        destinatarioId: destinatarioId,
+        eventoId: mensagemRef.id,
+        publicacaoId: publicacaoId.trim(),
+        conversaId: id,
+      );
     });
   }
 }

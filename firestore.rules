@@ -63,7 +63,223 @@ service cloud.firestore {
                     && request.resource.data.sobreMim is string;
 
       allow list, delete: if false;
+
+    match /notificacoes/{notificacaoId} {
+      allow get, list: if request.auth != null
+                    && request.auth.uid == userId;
+
+      function dadosValidos() {
+        return request.resource.data.keys().hasOnly([
+                 'tipo',
+                 'titulo',
+                 'mensagem',
+                 'remetenteId',
+                 'remetenteNome',
+                 'destinatarioId',
+                 'eventoId',
+                 'publicacaoId',
+                 'conversaId',
+                 'doacaoId',
+                 'lida',
+                 'dataCriacao'
+               ])
+               && request.resource.data.keys().hasAll([
+                 'tipo',
+                 'titulo',
+                 'mensagem',
+                 'remetenteId',
+                 'remetenteNome',
+                 'destinatarioId',
+                 'eventoId',
+                 'publicacaoId',
+                 'conversaId',
+                 'doacaoId',
+                 'lida',
+                 'dataCriacao'
+               ])
+               && request.resource.data.titulo is string
+               && request.resource.data.titulo.size() > 0
+               && request.resource.data.titulo.size() <= 100
+               && request.resource.data.mensagem is string
+               && request.resource.data.mensagem.size() > 0
+               && request.resource.data.mensagem.size() <= 300
+               && request.resource.data.remetenteId == request.auth.uid
+               && request.resource.data.remetenteNome is string
+               && request.resource.data.remetenteNome.size() > 0
+               && request.resource.data.destinatarioId == userId
+               && request.resource.data.eventoId is string
+               && request.resource.data.eventoId.size() > 0
+               && request.resource.data.publicacaoId is string
+               && request.resource.data.publicacaoId.size() > 0
+               && (
+                 request.resource.data.conversaId == null
+                 || request.resource.data.conversaId is string
+               )
+               && (
+                 request.resource.data.doacaoId == null
+                 || request.resource.data.doacaoId is string
+               )
+               && request.resource.data.remetenteId != userId
+               && request.resource.data.lida == false
+               && request.resource.data.dataCriacao == request.time;
+      }
+
+      function validarNovoInteresse() {
+        let publicacao = /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId);
+        let interesse = /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)/interesses/$(request.auth.uid);
+
+        return request.resource.data.tipo == 'novo_interesse'
+               && request.resource.data.titulo == 'Novo interesse'
+               && request.resource.data.eventoId == request.auth.uid
+               && request.resource.data.conversaId == null
+               && request.resource.data.doacaoId == null
+               && exists(publicacao)
+               && get(publicacao).data.usuarioId == userId
+               && get(publicacao).data.status == 'ativa'
+               && existsAfter(interesse)
+               && getAfter(interesse).data.usuarioId == request.auth.uid
+               && getAfter(interesse).data.nomeUsuario == request.resource.data.remetenteNome
+               && getAfter(interesse).data.dataCriacao == request.time;
+      }
+
+      function validarInteressadoEscolhido() {
+        let publicacao = /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId);
+
+        return request.resource.data.tipo == 'interessado_escolhido'
+               && request.resource.data.titulo == 'Você foi escolhido!'
+               && request.resource.data.eventoId == request.resource.data.publicacaoId
+               && request.resource.data.conversaId == null
+               && request.resource.data.doacaoId == null
+               && exists(publicacao)
+               && get(publicacao).data.usuarioId == request.auth.uid
+               && get(publicacao).data.status == 'ativa'
+               && get(publicacao).data.nomeDoador == request.resource.data.remetenteNome
+               && getAfter(publicacao).data.status == 'em_andamento'
+               && getAfter(publicacao).data.usuarioEscolhidoId == userId;
+      }
+
+      function validarDoacaoConcluida() {
+        return request.resource.data.doacaoId is string
+               && validarDoacaoConcluidaComId();
+      }
+
+      function validarDoacaoConcluidaComId() {
+        let publicacao = /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId);
+        let doacao = /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId);
+
+        return request.resource.data.tipo == 'doacao_concluida'
+               && request.resource.data.titulo == 'Doação concluída'
+               && request.resource.data.eventoId == request.resource.data.doacaoId
+               && request.resource.data.conversaId == null
+               && exists(publicacao)
+               && get(publicacao).data.usuarioId == request.auth.uid
+               && get(publicacao).data.status == 'em_andamento'
+               && get(publicacao).data.usuarioEscolhidoId == userId
+               && get(publicacao).data.nomeDoador == request.resource.data.remetenteNome
+               && existsAfter(doacao)
+               && getAfter(doacao).data.publicacaoId == request.resource.data.publicacaoId
+               && getAfter(doacao).data.doadorId == request.auth.uid
+               && getAfter(doacao).data.beneficiarioId == userId
+               && getAfter(doacao).data.status == 'concluida'
+               && getAfter(publicacao).data.status == 'concluida'
+               && getAfter(publicacao).data.doacaoAtualId == request.resource.data.doacaoId;
+      }
+
+      function validarDoacaoReaberta() {
+        let publicacao = /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId);
+
+        return request.resource.data.tipo == 'doacao_reaberta'
+               && request.resource.data.titulo == 'Doação reaberta'
+               && request.resource.data.eventoId == request.resource.data.publicacaoId
+               && request.resource.data.conversaId == null
+               && exists(publicacao)
+               && get(publicacao).data.usuarioId == request.auth.uid
+               && get(publicacao).data.status == 'concluida'
+               && get(publicacao).data.usuarioEscolhidoId == userId
+               && get(publicacao).data.nomeDoador == request.resource.data.remetenteNome
+               && getAfter(publicacao).data.status == 'ativa'
+               && !getAfter(publicacao).data.keys().hasAny([
+                 'usuarioEscolhidoId',
+                 'usuarioEscolhidoNome',
+                 'usuarioEscolhidoCidade',
+                 'dataConclusao',
+                 'doacaoAtualId'
+               ])
+               && (
+                 request.resource.data.doacaoId == null
+                 || validarHistoricoReaberto()
+               );
+      }
+
+      function validarHistoricoReaberto() {
+        let doacao = /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId);
+
+        return request.resource.data.doacaoId is string
+               && exists(doacao)
+               && get(doacao).data.publicacaoId == request.resource.data.publicacaoId
+               && get(doacao).data.doadorId == request.auth.uid
+               && get(doacao).data.beneficiarioId == userId
+               && get(doacao).data.status == 'concluida'
+               && getAfter(doacao).data.status == 'reaberta'
+               && getAfter(doacao).data.dataReabertura == request.time;
+      }
+
+      function validarNovaMensagem() {
+        return request.resource.data.conversaId is string
+               && validarNovaMensagemComConversa();
+      }
+
+      function validarNovaMensagemComConversa() {
+        let conversa = /databases/$(database)/documents/conversas/$(request.resource.data.conversaId);
+        let mensagem = /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)/mensagens/$(request.resource.data.eventoId);
+
+        return request.resource.data.tipo == 'nova_mensagem'
+               && request.resource.data.titulo == 'Nova mensagem'
+               && request.resource.data.conversaId is string
+               && request.resource.data.doacaoId == null
+               && exists(conversa)
+               && get(conversa).data.publicacaoId == request.resource.data.publicacaoId
+               && request.auth.uid in get(conversa).data.participantes
+               && userId in get(conversa).data.participantes
+               && (
+                 (
+                   get(conversa).data.doadorId == request.auth.uid
+                   && get(conversa).data.interessadoId == userId
+                   && get(conversa).data.doadorNome == request.resource.data.remetenteNome
+                 )
+                 ||
+                 (
+                   get(conversa).data.interessadoId == request.auth.uid
+                   && get(conversa).data.doadorId == userId
+                   && get(conversa).data.interessadoNome == request.resource.data.remetenteNome
+                 )
+               )
+               && existsAfter(mensagem)
+               && getAfter(mensagem).data.remetenteId == request.auth.uid
+               && getAfter(mensagem).data.dataEnvio == request.time;
+      }
+
+      allow create: if request.auth != null
+                    && dadosValidos()
+                    && (
+                      validarNovoInteresse()
+                      || validarInteressadoEscolhido()
+                      || validarDoacaoConcluida()
+                      || validarDoacaoReaberta()
+                      || validarNovaMensagem()
+                    );
+
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && resource.data.lida == false
+                    && request.resource.data.lida == true
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      'lida'
+                    ]);
+
+      allow delete: if false;
     }
+  }
 
     match /publicacoes/{publicacaoId} {
       allow create: if request.auth != null

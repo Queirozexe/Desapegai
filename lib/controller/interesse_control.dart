@@ -1,12 +1,13 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../model/interessado.dart';
+import 'notificacao_control.dart';
 
 class InteresseControl {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificacaoControl _notificacaoControl = NotificacaoControl();
 
   CollectionReference<Map<String, dynamic>> _colecaoInteresses(
       String publicacaoId,
@@ -85,12 +86,65 @@ class InteresseControl {
       throw StateError('Cidade do usuário não encontrada no perfil.');
     }
 
-    await _colecaoInteresses(id).doc(uid).set({
-      'usuarioId': uid,
-      'nomeUsuario': nome.trim(),
-      'cidade': cidade.trim(),
-      'mensagem': texto,
-      'dataCriacao': FieldValue.serverTimestamp(),
+    final publicacaoRef = _firestore
+        .collection('publicacoes')
+        .doc(id);
+
+    final interesseRef = _colecaoInteresses(id).doc(uid);
+
+    await _firestore.runTransaction((transacao) async {
+      final documentoPublicacao = await transacao.get(publicacaoRef);
+      final documentoInteresse = await transacao.get(interesseRef);
+
+      if (!documentoPublicacao.exists) {
+        throw Exception('Publicação não encontrada.');
+      }
+
+      final dadosPublicacao = documentoPublicacao.data()!;
+
+      if (dadosPublicacao['status'] != 'ativa') {
+        throw Exception('Esta publicação não está disponível.');
+      }
+
+      final doadorId = dadosPublicacao['usuarioId'];
+      final tituloPublicacao = dadosPublicacao['titulo'];
+
+      if (doadorId is! String ||
+          doadorId.trim().isEmpty ||
+          doadorId == uid) {
+        throw Exception('Doador da publicação inválido.');
+      }
+
+      if (tituloPublicacao is! String ||
+          tituloPublicacao.trim().isEmpty) {
+        throw Exception('Título da publicação inválido.');
+      }
+
+      if (documentoInteresse.exists) {
+        throw Exception('Você já demonstrou interesse nesta publicação.');
+      }
+
+      transacao.set(interesseRef, {
+        'usuarioId': uid,
+        'nomeUsuario': nome.trim(),
+        'cidade': cidade.trim(),
+        'mensagem': texto,
+        'dataCriacao': FieldValue.serverTimestamp(),
+      });
+
+      _notificacaoControl.adicionarNaTransacao(
+        transacao: transacao,
+        tipo: 'novo_interesse',
+        titulo: 'Novo interesse',
+        mensagem:
+        '${nome.trim()} demonstrou interesse na sua publicação '
+            '"${tituloPublicacao.trim()}".',
+        remetenteId: uid,
+        remetenteNome: nome.trim(),
+        destinatarioId: doadorId,
+        eventoId: uid,
+        publicacaoId: id,
+      );
     });
   }
 

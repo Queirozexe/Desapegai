@@ -4,6 +4,7 @@ import 'package:desapegai/theme/app_theme.dart';
 import '../controller/sessao_control.dart';
 import '../controller/usuario_control.dart';
 import '../controller/publicacao_control.dart';
+import '../controller/notificacao_control.dart';
 import '../model/usuario.dart';
 import '../model/publicacao.dart';
 
@@ -12,6 +13,7 @@ import 'cadastro_publicacao_screen.dart';
 import 'detalhes_publicacao_screen.dart';
 import 'minhas_publicacoes_screen.dart';
 import 'conversas_screen.dart';
+import 'notificacoes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,9 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final SessaoControl _sessaoControl = SessaoControl();
   final UsuarioControl _usuarioControl = UsuarioControl();
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
+  final NotificacaoControl _notificacaoControl = NotificacaoControl();
 
   late final Future<Usuario?> _usuarioFuture;
   late final Stream<List<Publicacao>> _publicacoesStream;
+  late final Stream<int> _quantidadeNaoLidasStream;
 
   @override
   void initState() {
@@ -37,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _usuarioFuture = _usuarioControl.buscarUsuarioAtual();
     _publicacoesStream = _publicacaoControl.acompanharPublicacoes();
+    _quantidadeNaoLidasStream = _notificacaoControl.acompanharQuantidadeNaoLidas();
   }
 
   void _aviso(String mensagem) {
@@ -345,13 +350,63 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const Spacer(),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.notifications_outlined,
-                        ),
-                        onPressed: () => _aviso(
-                          'Notificações serão implementadas depois.',
-                        ),
+                      StreamBuilder<int>(
+                        stream: _quantidadeNaoLidasStream,
+                        builder: (context, snapshot) {
+                          final quantidade = snapshot.data ?? 0;
+
+                          return IconButton(
+                            tooltip: 'Notificações',
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                  const NotificacoesScreen(),
+                                ),
+                              );
+                            },
+                            icon: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                const Icon(
+                                  Icons.notifications_outlined,
+                                ),
+                                if (quantidade > 0)
+                                  Positioned(
+                                    top: -6,
+                                    right: -8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius:
+                                        BorderRadius.circular(12),
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 17,
+                                        minHeight: 17,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        quantidade > 99
+                                            ? '99+'
+                                            : '$quantidade',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.logout_outlined),

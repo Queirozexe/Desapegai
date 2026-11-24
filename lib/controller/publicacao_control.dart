@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../model/publicacao.dart';
 import 'chat_control.dart';
+import 'notificacao_control.dart';
 
 class PublicacaoControl {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificacaoControl _notificacaoControl = NotificacaoControl();
 
   Future<String> cadastrarPublicacao(Publicacao publicacao) async {
     final usuario = _auth.currentUser;
@@ -288,13 +290,26 @@ class PublicacaoControl {
 
       final nomeBeneficiario = dadosInteresse['nomeUsuario'];
       final cidadeBeneficiario = dadosInteresse['cidade'];
+      final tituloPublicacao = dadosPublicacao['titulo'];
+      final nomeDoador = dadosPublicacao['nomeDoador'];
 
-      if (nomeBeneficiario is! String || nomeBeneficiario.trim().isEmpty) {
+      if (nomeBeneficiario is! String ||
+          nomeBeneficiario.trim().isEmpty) {
         throw Exception('Nome do beneficiário inválido.');
       }
 
-      if (cidadeBeneficiario is! String || cidadeBeneficiario.trim().isEmpty) {
+      if (cidadeBeneficiario is! String ||
+          cidadeBeneficiario.trim().isEmpty) {
         throw Exception('Cidade do beneficiário inválida.');
+      }
+
+      if (tituloPublicacao is! String ||
+          tituloPublicacao.trim().isEmpty) {
+        throw Exception('Título da publicação inválido.');
+      }
+
+      if (nomeDoador is! String || nomeDoador.trim().isEmpty) {
+        throw Exception('Nome do doador inválido.');
       }
 
       transacao.update(publicacaoRef, {
@@ -303,6 +318,20 @@ class PublicacaoControl {
         'usuarioEscolhidoNome': nomeBeneficiario.trim(),
         'usuarioEscolhidoCidade': cidadeBeneficiario.trim(),
       });
+
+      _notificacaoControl.adicionarNaTransacao(
+        transacao: transacao,
+        tipo: 'interessado_escolhido',
+        titulo: 'Você foi escolhido!',
+        mensagem:
+        '${nomeDoador.trim()} escolheu você para receber '
+            '"${tituloPublicacao.trim()}".',
+        remetenteId: usuario.uid,
+        remetenteNome: nomeDoador.trim(),
+        destinatarioId: idUsuarioEscolhido,
+        eventoId: idPublicacao,
+        publicacaoId: idPublicacao,
+      );
     });
   }
 
@@ -348,100 +377,6 @@ class PublicacaoControl {
         'usuarioEscolhidoId': FieldValue.delete(),
         'usuarioEscolhidoNome': FieldValue.delete(),
         'usuarioEscolhidoCidade': FieldValue.delete(),
-      });
-    });
-  }
-
-  Future<void> concluirDoacao({required String publicacaoId}) async {
-    final usuario = _auth.currentUser;
-
-    if (usuario == null) {
-      throw Exception('Usuário não autenticado.');
-    }
-
-    final idPublicacao = publicacaoId.trim();
-
-    if (idPublicacao.isEmpty) {
-      throw Exception('Identificador da publicação inválido.');
-    }
-
-    final publicacaoRef = _firestore
-        .collection('publicacoes')
-        .doc(idPublicacao);
-
-    await _firestore.runTransaction((transacao) async {
-      final documento = await transacao.get(publicacaoRef);
-
-      if (!documento.exists) {
-        throw Exception('Publicação não encontrada.');
-      }
-
-      final dados = documento.data()!;
-
-      if (dados['usuarioId'] != usuario.uid) {
-        throw Exception('Você não é o dono desta publicação.');
-      }
-
-      if (dados['status'] != 'em_andamento' ||
-          dados['usuarioEscolhidoId'] is! String) {
-        throw Exception('Esta doação não pode ser concluída.');
-      }
-
-      if (dados.containsKey('dataConclusao')) {
-        throw Exception('Esta doação já possui uma data de conclusão.');
-      }
-
-      transacao.update(publicacaoRef, {
-        'status': 'concluida',
-        'dataConclusao': FieldValue.serverTimestamp(),
-      });
-    });
-  }
-
-  Future<void> reabrirDoacao({
-    required String publicacaoId,
-  }) async {
-    final usuario = _auth.currentUser;
-
-    if (usuario == null) {
-      throw Exception('Usuário não autenticado.');
-    }
-
-    final idPublicacao = publicacaoId.trim();
-
-    if (idPublicacao.isEmpty) {
-      throw Exception('Identificador da publicação inválido.');
-    }
-
-    final publicacaoRef = _firestore
-        .collection('publicacoes')
-        .doc(idPublicacao);
-
-    await _firestore.runTransaction((transacao) async {
-      final documento = await transacao.get(publicacaoRef);
-
-      if (!documento.exists) {
-        throw Exception('Publicação não encontrada.');
-      }
-
-      final dados = documento.data()!;
-
-      if (dados['usuarioId'] != usuario.uid) {
-        throw Exception('Você não é o dono desta publicação.');
-      }
-
-      if (dados['status'] != 'concluida' ||
-          dados['usuarioEscolhidoId'] is! String ||
-          dados['dataConclusao'] is! Timestamp) {
-        throw Exception('Esta doação não pode ser reaberta.');
-      }
-
-      transacao.update(publicacaoRef, {
-        'status': 'ativa',
-        'usuarioEscolhidoId': FieldValue.delete(),
-        'usuarioEscolhidoNome': FieldValue.delete(),
-        'usuarioEscolhidoCidade': FieldValue.delete(),
-        'dataConclusao': FieldValue.delete(),
       });
     });
   }

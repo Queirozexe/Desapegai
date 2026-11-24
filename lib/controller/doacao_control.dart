@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../model/doacao.dart';
+import 'notificacao_control.dart';
 
 class DoacaoControl {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificacaoControl _notificacaoControl = NotificacaoControl();
 
   String _obterUidUsuarioAtual() {
     final usuario = _auth.currentUser;
@@ -55,7 +57,7 @@ class DoacaoControl {
       }
 
       final doadorNome = dados['nomeDoador'];
-      final beneficiarioId = dados['usuarioEscolhidoId'];
+      final beneficiarioId = dados['usuarioEscolhidoId'] as String;
       final beneficiarioNome = dados['usuarioEscolhidoNome'];
       final beneficiarioCidade = dados['usuarioEscolhidoCidade'];
       final titulo = dados['titulo'];
@@ -65,7 +67,7 @@ class DoacaoControl {
         throw Exception('Nome do doador inválido.');
       }
 
-      if (beneficiarioId.toString().trim().isEmpty || beneficiarioId == uid) {
+      if (beneficiarioId.trim().isEmpty || beneficiarioId == uid) {
         throw Exception('Beneficiário inválido.');
       }
 
@@ -109,6 +111,20 @@ class DoacaoControl {
         'dataConclusao': FieldValue.serverTimestamp(),
         'doacaoAtualId': doacaoRef.id,
       });
+
+      _notificacaoControl.adicionarNaTransacao(
+        transacao: transacao,
+        tipo: 'doacao_concluida',
+        titulo: 'Doação concluída',
+        mensagem:
+        'A doação de "${titulo.trim()}" foi marcada como concluída.',
+        remetenteId: uid,
+        remetenteNome: doadorNome.trim(),
+        destinatarioId: beneficiarioId,
+        eventoId: doacaoRef.id,
+        publicacaoId: idPublicacao,
+        doacaoId: doacaoRef.id,
+      );
     });
   }
 
@@ -143,6 +159,29 @@ class DoacaoControl {
         throw Exception('Esta doação não pode ser reaberta.');
       }
 
+      final beneficiarioId = dados['usuarioEscolhidoId'] as String;
+      final beneficiarioNome = dados['usuarioEscolhidoNome'];
+      final doadorNome = dados['nomeDoador'];
+      final tituloPublicacao = dados['titulo'];
+
+      if (beneficiarioNome is! String ||
+          beneficiarioNome.trim().isEmpty) {
+        throw Exception('Nome do beneficiário inválido.');
+      }
+
+      if (beneficiarioId.trim().isEmpty || beneficiarioId == uid) {
+        throw Exception('Beneficiário inválido.');
+      }
+
+      if (doadorNome is! String || doadorNome.trim().isEmpty) {
+        throw Exception('Nome do doador inválido.');
+      }
+
+      if (tituloPublicacao is! String ||
+          tituloPublicacao.trim().isEmpty) {
+        throw Exception('Título da publicação inválido.');
+      }
+
       final doacaoAtualId = dados['doacaoAtualId'];
 
       DocumentReference<Map<String, dynamic>>? doacaoRef;
@@ -152,7 +191,9 @@ class DoacaoControl {
           throw Exception('Identificador do histórico inválido.');
         }
 
-        doacaoRef = _firestore.collection('doacoes').doc(doacaoAtualId);
+        doacaoRef = _firestore
+            .collection('doacoes')
+            .doc(doacaoAtualId);
 
         final documentoDoacao = await transacao.get(doacaoRef);
 
@@ -164,7 +205,7 @@ class DoacaoControl {
 
         if (dadosDoacao['publicacaoId'] != idPublicacao ||
             dadosDoacao['doadorId'] != uid ||
-            dadosDoacao['beneficiarioId'] != dados['usuarioEscolhidoId'] ||
+            dadosDoacao['beneficiarioId'] != beneficiarioId ||
             dadosDoacao['status'] != 'concluida') {
           throw Exception('Registro do histórico inválido.');
         }
@@ -183,6 +224,20 @@ class DoacaoControl {
         'dataConclusao': FieldValue.delete(),
         'doacaoAtualId': FieldValue.delete(),
       });
+
+      _notificacaoControl.adicionarNaTransacao(
+        transacao: transacao,
+        tipo: 'doacao_reaberta',
+        titulo: 'Doação reaberta',
+        mensagem:
+        'O doador reabriu a publicação "${tituloPublicacao.trim()}".',
+        remetenteId: uid,
+        remetenteNome: doadorNome.trim(),
+        destinatarioId: beneficiarioId,
+        eventoId: idPublicacao,
+        publicacaoId: idPublicacao,
+        doacaoId: doacaoRef?.id,
+      );
     });
   }
 
