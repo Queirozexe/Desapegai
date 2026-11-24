@@ -302,7 +302,8 @@ service cloud.firestore {
                       'cidade',
                       'dataCriacao',
                       'status',
-                      'imagens'
+                      'imagens',
+                      'coordenadas'
                     ])
                     && request.resource.data.keys().hasAll([
                       'usuarioId',
@@ -324,7 +325,11 @@ service cloud.firestore {
                     && request.resource.data.dataCriacao is timestamp
                     && request.resource.data.status == 'ativa'
                     && request.resource.data.imagens is list
-                    && request.resource.data.imagens.size() <= 3;
+                    && request.resource.data.imagens.size() <= 3
+                    && (
+                      !request.resource.data.keys().hasAny(['coordenadas'])
+                      || request.resource.data.coordenadas is latlng
+                    );
 
       allow get: if request.auth != null
                     && (
@@ -362,7 +367,8 @@ service cloud.firestore {
                           'categoria',
                           'estadoConservacao',
                           'cidade',
-                          'imagens'
+                          'imagens',
+                          'coordenadas'
                         ])
                         && request.resource.data.titulo is string
                         && request.resource.data.descricao is string
@@ -371,6 +377,10 @@ service cloud.firestore {
                         && request.resource.data.cidade is string
                         && request.resource.data.imagens is list
                         && request.resource.data.imagens.size() <= 3
+                        && (
+                          !request.resource.data.keys().hasAny(['coordenadas'])
+                          || request.resource.data.coordenadas is latlng
+                        )
                       )
 
                       ||

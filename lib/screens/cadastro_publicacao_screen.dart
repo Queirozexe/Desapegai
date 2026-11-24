@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../widgets/input.dart';
 import '../widgets/botoes.dart';
@@ -49,12 +50,28 @@ class _CadastroPublicacaoScreenState
 
   bool get _modoEdicao => widget.publicacao != null;
 
-  int get _totalImagens =>
-      _imagensExistentes.length + _imagensSelecionadas.length;
+  int get _totalImagens => _imagensExistentes.length + _imagensSelecionadas.length;
+
+  GeoPoint? get _coordenadasPublicacao {
+    if (_latitudePublicacao == null ||
+        _longitudePublicacao == null) {
+      return null;
+    }
+
+    return GeoPoint(
+      _latitudePublicacao!,
+      _longitudePublicacao!,
+    );
+  }
 
   String? _categoria;
   String? _estadoConservacao;
+  String _ultimaCidade = '';
 
+  double? _latitudePublicacao;
+  double? _longitudePublicacao;
+
+  bool _preenchendoLocalizacaoPorGps = false;
   bool _buscandoLocalizacao = false;
   bool _salvando = false;
 
@@ -76,6 +93,19 @@ class _CadastroPublicacaoScreenState
     'Para Retirada de Peças / Com Defeito',
   ];
 
+  void _aoAlterarCidade() {
+    final cidadeAtual = _cidadeController.text;
+
+    if (cidadeAtual == _ultimaCidade) return;
+
+    _ultimaCidade = cidadeAtual;
+
+    if (_preenchendoLocalizacaoPorGps) return;
+
+    _latitudePublicacao = null;
+    _longitudePublicacao = null;
+  }
+
   Future<void> _preencherLocalizacao() async {
     setState(() {
       _buscandoLocalizacao = true;
@@ -87,7 +117,18 @@ class _CadastroPublicacaoScreenState
 
       if (!mounted) return;
 
-      _cidadeController.text = localizacao;
+      _preenchendoLocalizacaoPorGps = true;
+
+      try {
+        _cidadeController.text = localizacao.endereco;
+      } finally {
+        _preenchendoLocalizacaoPorGps = false;
+      }
+
+      setState(() {
+        _latitudePublicacao = localizacao.latitude;
+        _longitudePublicacao = localizacao.longitude;
+      });
     } on LocalizacaoException catch (e) {
       if (!mounted) return;
 
@@ -125,18 +166,25 @@ class _CadastroPublicacaoScreenState
       _tituloController.text = publicacao.titulo;
       _descricaoController.text = publicacao.descricao;
       _cidadeController.text = publicacao.cidade;
+      if (publicacao.coordenadas != null) {
+        _latitudePublicacao = publicacao.coordenadas!.latitude;
+        _longitudePublicacao = publicacao.coordenadas!.longitude;
+      }
 
       _categoria = publicacao.categoria;
       _estadoConservacao = publicacao.estadoConservacao;
 
       _imagensExistentes.addAll(publicacao.imagens);
     }
+    _ultimaCidade = _cidadeController.text;
+    _cidadeController.addListener(_aoAlterarCidade);
   }
 
   @override
   void dispose() {
     _tituloController.dispose();
     _descricaoController.dispose();
+    _cidadeController.removeListener(_aoAlterarCidade);
     _cidadeController.dispose();
     super.dispose();
   }
@@ -417,6 +465,7 @@ class _CadastroPublicacaoScreenState
           estadoConservacao: _estadoConservacao!,
           cidade: _cidadeController.text.trim(),
           imagens: urlsImagens,
+          coordenadas: _coordenadasPublicacao,
         );
 
         if (!mounted) return;
@@ -436,6 +485,7 @@ class _CadastroPublicacaoScreenState
           categoria: _categoria!,
           estadoConservacao: _estadoConservacao!,
           cidade: _cidadeController.text.trim(),
+          coordenadas: _coordenadasPublicacao,
           dataCriacao: DateTime.now(),
           imagens: urlsImagens,
         );

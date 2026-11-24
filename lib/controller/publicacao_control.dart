@@ -130,6 +130,7 @@ class PublicacaoControl {
     required String estadoConservacao,
     required String cidade,
     required List<String> imagens,
+    required GeoPoint? coordenadas,
   }) async {
     final usuario = _auth.currentUser;
 
@@ -162,14 +163,22 @@ class PublicacaoControl {
         throw Exception('Você não é o dono desta publicação.');
       }
 
-      transacao.update(publicacaoRef, {
+      final atualizacao = <String, dynamic>{
         'titulo': titulo.trim(),
         'descricao': descricao.trim(),
         'categoria': categoria,
         'estadoConservacao': estadoConservacao,
         'cidade': cidade.trim(),
         'imagens': imagens,
-      });
+      };
+
+      if (coordenadas != null) {
+        atualizacao['coordenadas'] = coordenadas;
+      } else {
+        atualizacao['coordenadas'] = FieldValue.delete();
+      }
+
+      transacao.update(publicacaoRef, atualizacao);
     });
 
     await ChatControl().atualizarDadosPublicacaoNasConversas(
