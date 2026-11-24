@@ -9,6 +9,7 @@ import 'cadastro_publicacao_screen.dart';
 import 'minhas_publicacoes_screen.dart';
 import 'conversas_screen.dart';
 import 'historico_doacoes_screen.dart';
+import 'ajuda_seguranca_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -369,8 +370,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 icone: Icons.help_outline,
                                 titulo: 'Ajuda e segurança',
                                 onTap: () {
-                                  _aviso(
-                                    'A área de ajuda e segurança será implementada em uma próxima etapa.',
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const AjudaSegurancaScreen(),
+                                    ),
                                   );
                                 },
                               ),
