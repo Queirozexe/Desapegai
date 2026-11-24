@@ -38,6 +38,8 @@ O sistema de denúncias está implementado. Os usuários podem denunciar publica
 
 O sistema de notificações está implementado. O aplicativo gera notificações internas para eventos relacionados a interesses, escolha de beneficiários, conclusão e reabertura de doações e envio de mensagens. As notificações são armazenadas no Cloud Firestore, vinculadas ao usuário destinatário, e atualizadas em tempo real. A Home apresenta um indicador da quantidade de notificações não lidas, e o usuário pode acessar a tela de notificações, visualizar os registros e marcá-los como lidos.
 
+A tela **Ajuda e segurança** está implementada e pode ser acessada pela opção correspondente no perfil. Ela apresenta o processo de doação em quatro passos e perguntas frequentes com orientações sobre o funcionamento das doações, cuidados durante as conversas, retirada segura, transporte, denúncias e privacidade. Também informa sobre o estado atual da funcionalidade de bloqueio de usuários.
+
 ## Funcionalidades implementadas
 
 ### 1. Cadastro de usuários
@@ -395,6 +397,38 @@ As notificações são criadas junto às operações correspondentes no Cloud Fi
 Ao selecionar uma notificação, o aplicativo identifica seu tipo e direciona o usuário para a tela correspondente. As notificações de novo interesse abrem a `InteressadosScreen`, as notificações de mensagem abrem a `ChatScreen` e as demais notificações relacionadas a publicações abrem a `DetalhesPublicacaoScreen`.
 
 O sistema utiliza notificações internas armazenadas no Firestore, sem implementação de notificações push externas.
+
+### 16. Ajuda e segurança
+
+A `AjudaSegurancaScreen` apresenta informações e orientações para ajudar os usuários a utilizar o Desapegaí de forma segura.
+
+Funcionalidades implementadas:
+
+- Acesso pela opção "Ajuda e segurança" na tela de perfil.
+- Apresentação do processo de doação em quatro passos.
+- Seção de perguntas frequentes.
+- Expansão e recolhimento individual das perguntas.
+- Exibição inicial da primeira pergunta expandida.
+
+Os quatro passos apresentados são:
+
+1. Publique o item com fotos e descrição.
+2. Veja quem demonstrou interesse.
+3. Escolha uma pessoa e combine a entrega.
+4. Conclua a doação e avalie a experiência.
+
+A seção de perguntas frequentes apresenta orientações sobre:
+
+- Como funciona uma doação.
+- Cuidados durante a conversa.
+- Como combinar a retirada com segurança.
+- Transporte de itens.
+- Como denunciar ou bloquear alguém.
+- Privacidade e tratamento dos dados pessoais.
+
+As orientações reforçam que todas as doações são gratuitas e que o Desapegaí não vende produtos nem intermedeia pagamentos.
+
+A tela também explica que as denúncias podem ser registradas pela tela de detalhes da publicação ou pela conversa. O bloqueio de usuários ainda está em desenvolvimento e será disponibilizado em uma próxima atualização.
 
 ## Autenticação e armazenamento
 
@@ -775,6 +809,7 @@ desapegai/
 │   │   ├── publicacao.dart
 │   │   └── usuario.dart
 │   ├── screens/
+│   │   ├── ajuda_seguranca_screen.dart
 │   │   ├── auth_gate.dart
 │   │   ├── cadastro_publicacao_screen.dart
 │   │   ├── chat_screen.dart
@@ -837,6 +872,7 @@ O fluxo inicial é controlado pelo `AuthGate`, configurado como tela principal e
 | Notificação de novo interesse | `InteressadosScreen` |
 | Notificação de nova mensagem | `ChatScreen` |
 | Notificações de escolha, conclusão e reabertura | `DetalhesPublicacaoScreen` |
+| Opção Ajuda e segurança na tela de perfil | `AjudaSegurancaScreen` |
 
 A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um usuário autenticado e o perfil correspondente está disponível no Firestore. Caso o perfil não exista, o aplicativo apresenta a `CompletarPerfilScreen` para sua recuperação.
 
@@ -1080,13 +1116,18 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Abertura da tela de interessados ao selecionar uma notificação de novo interesse.
 - [x] Abertura da conversa correta ao selecionar uma notificação de mensagem.
 - [x] Validação das regras de segurança da subcoleção `notificacoes`.
+- [x] Acesso à tela Ajuda e Segurança pela tela de perfil.
+- [x] Exibição dos quatro passos do processo de doação.
+- [x] Exibição das perguntas frequentes.
+- [x] Expansão e recolhimento das perguntas.
+- [x] Verificação de que a primeira pergunta começa expandida.
+- [x] Navegação de retorno ao perfil.
 
-A análise estática com `flutter analyze` foi executada durante o desenvolvimento. Permanecem apontamentos preexistentes no projeto, incluindo avisos de depreciação e sugestões de lint. Nenhum novo apontamento relacionado à implementação do filtro de distância foi identificado nas análises realizadas.
+A análise estática com `flutter analyze` foi executada durante o desenvolvimento. Na verificação mais recente, não foram identificados erros. Permanecem apontamentos informativos e avisos de lint e depreciação no projeto.
 
 ## Funcionalidades pendentes
 
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
-- [ ] Ajuda e segurança.
 - [ ] Avaliações.
 - [ ] Implementação do painel administrativo, incluindo consulta e gerenciamento das denúncias.
 - [ ] Bloqueio de usuários e restrição de interações entre contas bloqueadas.
@@ -1097,7 +1138,6 @@ A análise estática com `flutter analyze` foi executada durante o desenvolvimen
 
 ### Funcionalidades posteriores
 
-- Implementar ajuda e segurança.
 - Desenvolver avaliações e bloqueio de usuários.
 - Implementar o painel administrativo para consulta e gerenciamento das denúncias.
 - Aprimorar a segurança da infraestrutura e do upload de imagens.
