@@ -13,7 +13,7 @@ class DenunciaControl {
     'Conduta inadequada ou ofensiva',
     'Informações falsas ou fotos que não correspondem',
     'Spam ou conteúdo repetido',
-    'Outro motivo',
+    'Outro',
   ];
 
   static const List<String> motivosUsuario = [
@@ -22,7 +22,7 @@ class DenunciaControl {
     'Conduta inadequada ou ofensiva',
     'Informações falsas ou fotos que não correspondem',
     'Spam ou conteúdo repetido',
-    'Outro motivo',
+    'Outro',
   ];
 
   String _obterUidUsuarioAtual() {

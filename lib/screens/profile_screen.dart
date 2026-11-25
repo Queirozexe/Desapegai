@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../controller/usuario_control.dart';
 import '../controller/sessao_control.dart';
+import '../controller/bloqueio_control.dart';
+import '../model/usuario_bloqueado.dart';
 import '../model/usuario.dart';
 import 'edit_profile_screen.dart';
 import 'cadastro_publicacao_screen.dart';
@@ -21,13 +23,21 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final UsuarioControl _usuarioControl = UsuarioControl();
   final SessaoControl _sessaoControl = SessaoControl();
+  final BloqueioControl _bloqueioControl = BloqueioControl();
 
   late Future<Usuario?> _usuarioFuture;
+  late final Stream<List<UsuarioBloqueado>> _usuariosBloqueadosStream;
+
+  bool _processandoDesbloqueio = false;
 
   @override
   void initState() {
     super.initState();
+
     _usuarioFuture = _usuarioControl.buscarUsuarioAtual();
+
+    _usuariosBloqueadosStream =
+        _bloqueioControl.acompanharUsuariosBloqueados();
   }
 
   String _gerarIniciais(String nome) {
@@ -112,6 +122,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _desbloquearUsuario(
+      UsuarioBloqueado usuario,
+      ) async {
+    if (_processandoDesbloqueio) return;
+
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Desbloquear ${usuario.nome}?'),
+          content: const Text(
+            'Essa pessoa poderá voltar a interagir com você e suas publicações poderão aparecer novamente.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Desbloquear',
+                style: TextStyle(color: AppColors.green),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmou != true || !mounted) return;
+
+    setState(() {
+      _processandoDesbloqueio = true;
+    });
+
+    try {
+      await _bloqueioControl.desbloquearUsuario(
+        usuario.usuarioId,
+      );
+
+      if (!mounted) return;
+
+      _aviso('Usuário desbloqueado.');
+    } catch (erro) {
+      if (!mounted) return;
+
+      _aviso('Não foi possível desbloquear o usuário.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processandoDesbloqueio = false;
+        });
+      }
+    }
+  }
+
+  Widget _construirUsuariosBloqueados() {
+    return StreamBuilder<List<UsuarioBloqueado>>(
+      stream: _usuariosBloqueadosStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Não foi possível carregar os usuários bloqueados.',
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final usuarios = snapshot.data!;
+
+        if (usuarios.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Usuários bloqueados',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...List.generate(usuarios.length, (index) {
+                  final usuario = usuarios[index];
+
+                  return Column(
+                    children: [
+                      if (index > 0) const Divider(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              usuario.nome,
+                              style: const TextStyle(fontSize: 15),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _processandoDesbloqueio
+                                ? null
+                                : () => _desbloquearUsuario(usuario),
+                            child: const Text('Desbloquear'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -394,6 +533,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                           ),
                         ),
+
+                        const SizedBox(height: 16),
+
+                        _construirUsuariosBloqueados(),
 
                         const SizedBox(height: 20),
 

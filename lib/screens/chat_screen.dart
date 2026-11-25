@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../controller/chat_control.dart';
 import '../controller/publicacao_control.dart';
 import '../controller/denuncia_control.dart';
+import '../controller/bloqueio_control.dart';
 import '../model/conversa.dart';
 import '../model/mensagem.dart';
 import '../theme/app_theme.dart';
@@ -28,9 +29,12 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _mensagemController = TextEditingController();
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
   final DenunciaControl _denunciaControl = DenunciaControl();
+  final BloqueioControl _bloqueioControl = BloqueioControl();
 
   late final Stream<List<Mensagem>> _mensagensStream;
   late final String _usuarioAtualId;
+  late final Stream<bool> _bloqueioStream;
+  late final String _outroUsuarioId;
 
   bool _abrindoPublicacao = false;
   bool _enviando = false;
@@ -51,6 +55,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _usuarioAtualId =
         FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    _outroUsuarioId = _ehDoadorAtual
+        ? widget.conversa.interessadoId
+        : widget.conversa.doadorId;
+
+    _bloqueioStream = _bloqueioControl
+        .acompanharBloqueioEntreUsuarios(_outroUsuarioId);
 
     _mensagensStream = _chatControl.acompanharMensagens(
       widget.conversa.id,
@@ -140,6 +151,12 @@ class _ChatScreenState extends State<ChatScreen> {
           ? 'Denunciar interessado'
           : 'Denunciar doador',
       motivos: DenunciaControl.motivosUsuario,
+      usuarioId: _ehDoadorAtual
+          ? widget.conversa.interessadoId
+          : widget.conversa.doadorId,
+      nomeUsuario: widget.conversa.nomeOutroParticipante(
+        _usuarioAtualId,
+      ),
     );
 
     if (!mounted || resultado == null) return;
@@ -184,11 +201,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-
-  Future<void> _enviarMensagem() async {
+  Future<void> _enviarMensagem({
+    required bool bloqueado,
+  }) async {
     final texto = _mensagemController.text.trim();
 
-    if (texto.isEmpty || _enviando) return;
+    if (texto.isEmpty || _enviando || bloqueado) return;
 
     setState(() {
       _enviando = true;
@@ -220,6 +238,45 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     }
+  }
+
+  Widget _construirAvisoBloqueio() {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: Color(0xFFE3DDCF),
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 18,
+      ),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.block,
+            color: AppColors.muted,
+            size: 20,
+          ),
+          SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Mensagens desativadas para este usuário.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _construirBalao(Mensagem mensagem) {
@@ -340,7 +397,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _construirCampoMensagem() {
+  Widget _construirCampoMensagem({
+    required bool bloqueado,
+  }) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -389,7 +448,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 maxLength: 1000,
                 mostrarContador: false,
                 textInputAction: TextInputAction.send,
-                onFieldSubmitted: (_) => _enviarMensagem(),
+                onFieldSubmitted: (_) {
+                  _enviarMensagem(bloqueado: bloqueado);
+                },
               ),
             ),
           ),
@@ -401,7 +462,9 @@ class _ChatScreenState extends State<ChatScreen> {
             shape: const CircleBorder(),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: _enviando ? null : _enviarMensagem,
+              onTap: _enviando || bloqueado
+                  ? null
+                  : () => _enviarMensagem(bloqueado: bloqueado),
               child: SizedBox(
                 width: 48,
                 height: 48,
@@ -584,14 +647,49 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             Expanded(
-              child: StreamBuilder<List<Mensagem>>(
-                stream: _mensagensStream,
-                builder: (context, snapshot) {
-                  return _construirMensagens(snapshot);
+              child: StreamBuilder<bool>(
+                stream: _bloqueioStream,
+                builder: (context, bloqueioSnapshot) {
+                  if (bloqueioSnapshot.hasError) {
+                    return const Center(
+                      child: Text(
+                        'Não foi possível verificar o bloqueio.',
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+
+                  if (!bloqueioSnapshot.hasData) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.green,
+                      ),
+                    );
+                  }
+
+                  final bloqueado = bloqueioSnapshot.data!;
+
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: StreamBuilder<List<Mensagem>>(
+                          stream: _mensagensStream,
+                          builder: (context, snapshot) {
+                            return _construirMensagens(snapshot);
+                          },
+                        ),
+                      ),
+                      if (bloqueado)
+                        _construirAvisoBloqueio()
+                      else
+                        _construirCampoMensagem(
+                          bloqueado: bloqueado,
+                        ),
+                    ],
+                  );
                 },
               ),
             ),
-            _construirCampoMensagem(),
           ],
         ),
       ),

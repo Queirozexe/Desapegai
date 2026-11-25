@@ -115,6 +115,32 @@ class InteresseControl {
         throw Exception('Doador da publicação inválido.');
       }
 
+      final bloqueioInteressadoRef = _firestore
+          .collection('usuarios')
+          .doc(uid)
+          .collection('bloqueados')
+          .doc(doadorId);
+
+      final bloqueioDoadorRef = _firestore
+          .collection('usuarios')
+          .doc(doadorId)
+          .collection('bloqueados')
+          .doc(uid);
+
+      final bloqueioInteressado = await transacao.get(
+        bloqueioInteressadoRef,
+      );
+
+      final bloqueioDoador = await transacao.get(
+        bloqueioDoadorRef,
+      );
+
+      if (bloqueioInteressado.exists || bloqueioDoador.exists) {
+        throw Exception(
+          'Não é possível demonstrar interesse nesta publicação.',
+        );
+      }
+
       if (tituloPublicacao is! String ||
           tituloPublicacao.trim().isEmpty) {
         throw Exception('Título da publicação inválido.');

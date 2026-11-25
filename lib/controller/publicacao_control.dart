@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../model/publicacao.dart';
+import 'bloqueio_control.dart';
 import 'chat_control.dart';
 import 'notificacao_control.dart';
 
@@ -9,6 +12,7 @@ class PublicacaoControl {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificacaoControl _notificacaoControl = NotificacaoControl();
+  final BloqueioControl _bloqueioControl = BloqueioControl();
 
   Future<String> cadastrarPublicacao(Publicacao publicacao) async {
     final usuario = _auth.currentUser;
@@ -59,18 +63,6 @@ class PublicacaoControl {
     return Publicacao.fromMap(dados, documento.id);
   }
 
-  Future<List<Publicacao>> buscarPublicacoes() async {
-    final resultado =
-        await _firestore
-            .collection('publicacoes')
-            .where('status', isEqualTo: 'ativa')
-            .get();
-
-    return resultado.docs.map((documento) {
-      return Publicacao.fromMap(documento.data(), documento.id);
-    }).toList();
-  }
-
   Stream<List<Publicacao>> acompanharPublicacoes() {
     final usuario = _auth.currentUser;
 
@@ -80,21 +72,69 @@ class PublicacaoControl {
       );
     }
 
-    return _firestore
+    final controlador = StreamController<List<Publicacao>>();
+
+    Set<String>? idsComBloqueio;
+    List<Publicacao>? publicacoes;
+
+    void emitir() {
+      if (idsComBloqueio == null ||
+          publicacoes == null ||
+          controlador.isClosed) {
+        return;
+      }
+
+      final resultado = publicacoes!
+          .where(
+            (publicacao) =>
+        !idsComBloqueio!.contains(publicacao.usuarioId),
+      )
+          .toList();
+
+      controlador.add(resultado);
+    }
+
+    final inscricaoPublicacoes = _firestore
         .collection('publicacoes')
         .where('status', isEqualTo: 'ativa')
         .where('usuarioId', isNotEqualTo: usuario.uid)
         .snapshots()
-        .map((resultado) {
-          final publicacoes =
-              resultado.docs.map((documento) {
-                return Publicacao.fromMap(documento.data(), documento.id);
-              }).toList();
+        .listen(
+          (resultado) {
+        publicacoes = resultado.docs
+            .map(
+              (documento) => Publicacao.fromMap(
+            documento.data(),
+            documento.id,
+          ),
+        )
+            .toList();
 
-          publicacoes.sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
+        publicacoes!.sort(
+              (a, b) => b.dataCriacao.compareTo(a.dataCriacao),
+        );
 
-          return publicacoes;
-        });
+        emitir();
+      },
+      onError: controlador.addError,
+    );
+
+    final inscricaoBloqueios = _bloqueioControl
+        .acompanharIdsComBloqueio()
+        .listen(
+          (ids) {
+        idsComBloqueio = ids;
+        emitir();
+      },
+      onError: controlador.addError,
+    );
+
+    controlador.onCancel = () async {
+      await inscricaoPublicacoes.cancel();
+      await inscricaoBloqueios.cancel();
+    };
+
+    return controlador.stream;
   }
 
   Stream<List<Publicacao>> acompanharMinhasPublicacoes() {
