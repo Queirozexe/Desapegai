@@ -29,6 +29,8 @@ class _NotificacoesScreenState extends State<NotificacoesScreen> {
 
   late final Stream<List<Notificacao>> _notificacoesStream;
 
+  bool _marcandoTodasComoLidas = false;
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +43,37 @@ class _NotificacoesScreenState extends State<NotificacoesScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensagem)),
     );
+  }
+
+  Future<void> _marcarTodasComoLidas() async {
+    if (_marcandoTodasComoLidas) return;
+
+    setState(() {
+      _marcandoTodasComoLidas = true;
+    });
+
+    try {
+      await _notificacaoControl.marcarTodasComoLidas();
+
+      if (!mounted) return;
+
+      _aviso('Todas as notificações foram marcadas como lidas.');
+    } catch (erro, stackTrace) {
+      debugPrint('Erro ao marcar todas as notificações como lidas: $erro');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      _aviso(
+        'Não foi possível marcar todas as notificações como lidas. Tente novamente.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _marcandoTodasComoLidas = false;
+        });
+      }
+    }
   }
 
   IconData _obterIcone(String tipo) {
@@ -319,13 +352,47 @@ class _NotificacoesScreenState extends State<NotificacoesScreen> {
       );
     }
 
+    final temNaoLidas = notificacoes.any(
+          (notificacao) => !notificacao.lida,
+    );
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      itemCount: notificacoes.length,
+      itemCount: notificacoes.length + (temNaoLidas ? 1 : 0),
       separatorBuilder: (context, index) =>
       const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        return _construirCard(notificacoes[index]);
+        if (temNaoLidas && index == 0) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _marcandoTodasComoLidas
+                  ? null
+                  : _marcarTodasComoLidas,
+              icon: _marcandoTodasComoLidas
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                ),
+              )
+                  : const Icon(Icons.done_all_rounded),
+              label: Text(
+                _marcandoTodasComoLidas
+                    ? 'Marcando...'
+                    : 'Marcar todas como lidas',
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.green,
+              ),
+            ),
+          );
+        }
+
+        final indiceNotificacao = temNaoLidas ? index - 1 : index;
+
+        return _construirCard(notificacoes[indiceNotificacao]);
       },
     );
   }

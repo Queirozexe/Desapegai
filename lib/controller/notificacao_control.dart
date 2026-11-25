@@ -145,4 +145,30 @@ class NotificacaoControl {
       'lida': true,
     });
   }
+
+  Future<void> marcarTodasComoLidas() async {
+    final usuarioId = _obterUidUsuarioAtual();
+    final colecao = _colecaoNotificacoes(usuarioId);
+
+    while (true) {
+      final resultado = await colecao
+          .where('lida', isEqualTo: false)
+          .limit(500)
+          .get();
+
+      if (resultado.docs.isEmpty) {
+        return;
+      }
+
+      final lote = _firestore.batch();
+
+      for (final documento in resultado.docs) {
+        lote.update(documento.reference, {
+          'lida': true,
+        });
+      }
+
+      await lote.commit();
+    }
+  }
 }
