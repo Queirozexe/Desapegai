@@ -2,6 +2,13 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+      function existeBloqueioEntre(usuarioA, usuarioB) {
+        return exists(
+          /databases/$(database)/documents/usuarios/$(usuarioA)/bloqueados/$(usuarioB)
+        ) || exists(
+          /databases/$(database)/documents/usuarios/$(usuarioB)/bloqueados/$(usuarioA)
+        );
+      }
 
     match /usuarios/{userId} {
       allow create: if request.auth != null
@@ -30,7 +37,7 @@ service cloud.firestore {
                     && request.resource.data.sobreMim is string;
 
       allow get: if request.auth != null
-                 && request.auth.uid == userId;
+                    && request.auth.uid == userId;
 
       allow update: if request.auth != null
                     && request.auth.uid == userId
@@ -63,6 +70,40 @@ service cloud.firestore {
                     && request.resource.data.sobreMim is string;
 
       allow list, delete: if false;
+
+    match /bloqueados/{bloqueadoId} {
+      allow get: if request.auth != null
+                    && (
+                      request.auth.uid == userId
+                      || request.auth.uid == bloqueadoId
+                    );
+
+      allow list: if request.auth != null
+                    && request.auth.uid == userId;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && bloqueadoId != userId
+                    && request.resource.data.keys().hasOnly([
+                      'usuarioId',
+                      'nome',
+                      'dataBloqueio'
+                    ])
+                    && request.resource.data.keys().hasAll([
+                      'usuarioId',
+                      'nome',
+                      'dataBloqueio'
+                    ])
+                    && request.resource.data.usuarioId == bloqueadoId
+                    && request.resource.data.nome is string
+                    && request.resource.data.nome.size() > 0
+                    && request.resource.data.dataBloqueio == request.time;
+
+      allow update: if false;
+
+      allow delete: if request.auth != null
+                    && request.auth.uid == userId;
+    }
 
     match /notificacoes/{notificacaoId} {
       allow get, list: if request.auth != null
@@ -131,6 +172,7 @@ service cloud.firestore {
         return request.resource.data.tipo == 'novo_interesse'
                && request.resource.data.titulo == 'Novo interesse'
                && request.resource.data.eventoId == request.auth.uid
+               && !existeBloqueioEntre(request.auth.uid, userId)
                && request.resource.data.conversaId == null
                && request.resource.data.doacaoId == null
                && exists(publicacao)
@@ -148,6 +190,7 @@ service cloud.firestore {
         return request.resource.data.tipo == 'interessado_escolhido'
                && request.resource.data.titulo == 'Você foi escolhido!'
                && request.resource.data.eventoId == request.resource.data.publicacaoId
+               && !existeBloqueioEntre(request.auth.uid, userId)
                && request.resource.data.conversaId == null
                && request.resource.data.doacaoId == null
                && exists(publicacao)
@@ -238,6 +281,10 @@ service cloud.firestore {
                && request.resource.data.conversaId is string
                && request.resource.data.doacaoId == null
                && exists(conversa)
+               && !existeBloqueioEntre(
+                 get(conversa).data.doadorId,
+                 get(conversa).data.interessadoId
+               )
                && get(conversa).data.publicacaoId == request.resource.data.publicacaoId
                && request.auth.uid in get(conversa).data.participantes
                && userId in get(conversa).data.participantes
@@ -280,6 +327,11 @@ service cloud.firestore {
       allow delete: if false;
     }
   }
+
+    match /{path=**}/bloqueados/{bloqueadoId} {
+      allow list: if request.auth != null
+                  && resource.data.usuarioId == request.auth.uid;
+    }
 
     match /publicacoes/{publicacaoId} {
       allow create: if request.auth != null
@@ -395,6 +447,10 @@ service cloud.firestore {
                         && request.resource.data.status == 'em_andamento'
                         && request.resource.data.usuarioEscolhidoId is string
                         && request.resource.data.usuarioEscolhidoId != request.auth.uid
+                        && !existeBloqueioEntre(
+                          request.auth.uid,
+                          request.resource.data.usuarioEscolhidoId
+                        )
                         && request.resource.data.usuarioEscolhidoNome is string
                         && request.resource.data.usuarioEscolhidoNome.size() > 0
                         && request.resource.data.usuarioEscolhidoCidade is string
@@ -590,6 +646,12 @@ service cloud.firestore {
                     && exists(
                       /databases/$(database)/documents/usuarios/$(request.auth.uid)
                     )
+                    && !existeBloqueioEntre(
+                      request.auth.uid,
+                      get(
+                        /databases/$(database)/documents/publicacoes/$(publicacaoId)
+                      ).data.usuarioId
+                    )
                     && get(
                       /databases/$(database)/documents/usuarios/$(request.auth.uid)
                     ).data.nome is string
@@ -723,7 +785,11 @@ service cloud.firestore {
                     ).data.usuarioId == request.resource.data.interessadoId
                     && get(
                       /databases/$(database)/documents/publicacoes/$(request.resource.data.publicacaoId)/interesses/$(request.resource.data.interessadoId)
-                    ).data.nomeUsuario == request.resource.data.interessadoNome;
+                    ).data.nomeUsuario == request.resource.data.interessadoNome
+                    && !existeBloqueioEntre(
+                      request.resource.data.doadorId,
+                      request.resource.data.interessadoId
+                    );
 
       allow get: if request.auth != null
                     && (
@@ -751,6 +817,10 @@ service cloud.firestore {
                         && request.resource.data.ultimaMensagem.size() <= 1000
                         && request.resource.data.ultimaMensagemRemetenteId == request.auth.uid
                         && request.resource.data.dataUltimaMensagem == request.time
+                        && !existeBloqueioEntre(
+                          resource.data.doadorId,
+                          resource.data.interessadoId
+                        )
                       )
 
                       ||
@@ -821,7 +891,15 @@ service cloud.firestore {
                       && request.resource.data.texto is string
                       && request.resource.data.texto.size() > 0
                       && request.resource.data.texto.size() <= 1000
-                      && request.resource.data.dataEnvio == request.time;
+                      && request.resource.data.dataEnvio == request.time
+                      && !existeBloqueioEntre(
+                        get(
+                          /databases/$(database)/documents/conversas/$(conversaId)
+                        ).data.doadorId,
+                        get(
+                          /databases/$(database)/documents/conversas/$(conversaId)
+                        ).data.interessadoId
+                      );
 
         allow update: if false;
 

@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 
+import '../controller/bloqueio_control.dart';
 import '../theme/app_theme.dart';
 import 'input.dart';
 import 'botoes.dart';
@@ -8,23 +8,31 @@ import 'botoes.dart';
 class DialogoDenuncia extends StatefulWidget {
   final String titulo;
   final List<String> motivos;
+  final String? usuarioId;
+  final String? nomeUsuario;
 
   const DialogoDenuncia({
     super.key,
     required this.titulo,
     required this.motivos,
+    this.usuarioId,
+    this.nomeUsuario,
   });
 
   static Future<Map<String, String>?> mostrar({
     required BuildContext context,
     required String titulo,
     required List<String> motivos,
+    String? usuarioId,
+    String? nomeUsuario,
   }) {
     return showDialog<Map<String, String>>(
       context: context,
       builder: (context) => DialogoDenuncia(
         titulo: titulo,
         motivos: motivos,
+        usuarioId: usuarioId,
+        nomeUsuario: nomeUsuario,
       ),
     );
   }
@@ -36,10 +44,116 @@ class DialogoDenuncia extends StatefulWidget {
 class _DialogoDenunciaState extends State<DialogoDenuncia> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _descricaoController =
-  TextEditingController();
+  final TextEditingController _descricaoController = TextEditingController();
+  final BloqueioControl _bloqueioControl = BloqueioControl();
+
+  late final Stream<bool>? _bloqueioStream;
+
+  bool _processandoBloqueio = false;
 
   String? _motivoSelecionado;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final usuarioId = widget.usuarioId;
+
+    _bloqueioStream = usuarioId == null || usuarioId.isEmpty
+        ? null
+        : _bloqueioControl.acompanharBloqueioFeitoPorMim(
+      usuarioId,
+    );
+  }
+
+  Future<void> _alterarBloqueio(bool bloqueado) async {
+    final usuarioId = widget.usuarioId;
+    final nomeUsuario = widget.nomeUsuario;
+
+    if (_processandoBloqueio ||
+        usuarioId == null ||
+        nomeUsuario == null) {
+      return;
+    }
+
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            bloqueado
+                ? 'Desbloquear $nomeUsuario?'
+                : 'Bloquear $nomeUsuario?',
+          ),
+          content: Text(
+            bloqueado
+                ? 'Essa pessoa poderá voltar a interagir com você.'
+                : 'Vocês não poderão interagir e as publicações dessa pessoa ficarão ocultas para você.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                bloqueado ? 'Desbloquear' : 'Bloquear',
+                style: TextStyle(
+                  color: bloqueado ? AppColors.green : Colors.red,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmou != true || !mounted) return;
+
+    setState(() {
+      _processandoBloqueio = true;
+    });
+
+    try {
+      if (bloqueado) {
+        await _bloqueioControl.desbloquearUsuario(usuarioId);
+      } else {
+        await _bloqueioControl.bloquearUsuario(
+          usuarioId: usuarioId,
+          nome: nomeUsuario,
+        );
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            bloqueado
+                ? 'Usuário desbloqueado.'
+                : 'Usuário bloqueado.',
+          ),
+        ),
+      );
+    } catch (erro) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível alterar o bloqueio. Tente novamente.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processandoBloqueio = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -220,6 +334,36 @@ class _DialogoDenunciaState extends State<DialogoDenuncia> {
               'Enviar denúncia',
               onPressed: _confirmar,
             ),
+
+            if (_bloqueioStream != null)
+              StreamBuilder<bool>(
+                stream: _bloqueioStream,
+                builder: (context, snapshot) {
+                  final bloqueado = snapshot.data ?? false;
+
+                  return TextButton.icon(
+                    onPressed: _processandoBloqueio
+                        ? null
+                        : () => _alterarBloqueio(bloqueado),
+                    icon: Icon(
+                      bloqueado
+                          ? Icons.lock_open_outlined
+                          : Icons.block,
+                    ),
+                    label: Text(
+                      _processandoBloqueio
+                          ? 'Processando...'
+                          : bloqueado
+                          ? 'Desbloquear usuário'
+                          : 'Bloquear usuário',
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor:
+                      bloqueado ? AppColors.green : Colors.red,
+                    ),
+                  );
+                },
+              ),
 
             TextButton(
               onPressed: () => Navigator.pop(context),

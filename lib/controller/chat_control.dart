@@ -464,6 +464,32 @@ class ChatControl {
         throw Exception('Dados da notificação inválidos.');
       }
 
+      final bloqueioRemetenteRef = _firestore
+          .collection('usuarios')
+          .doc(uid)
+          .collection('bloqueados')
+          .doc(destinatarioId);
+
+      final bloqueioDestinatarioRef = _firestore
+          .collection('usuarios')
+          .doc(destinatarioId)
+          .collection('bloqueados')
+          .doc(uid);
+
+      final bloqueioRemetente = await transacao.get(
+        bloqueioRemetenteRef,
+      );
+
+      final bloqueioDestinatario = await transacao.get(
+        bloqueioDestinatarioRef,
+      );
+
+      if (bloqueioRemetente.exists || bloqueioDestinatario.exists) {
+        throw Exception(
+          'Não é possível enviar mensagens para este usuário.',
+        );
+      }
+
       transacao.set(mensagemRef, {
         'remetenteId': uid,
         'texto': mensagemTexto,

@@ -8,6 +8,8 @@ import '../widgets/dialogo_denuncia.dart';
 import '../controller/denuncia_control.dart';
 import '../controller/interesse_control.dart';
 import '../controller/chat_control.dart';
+import '../controller/bloqueio_control.dart';
+
 import 'chat_screen.dart';
 
 class DetalhesPublicacaoScreen extends StatefulWidget {
@@ -32,6 +34,8 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   late final DenunciaControl _denunciaControl;
   late final ChatControl _chatControl;
   late final InteresseControl _interesseControl;
+  late final BloqueioControl _bloqueioControl;
+  late final Stream<bool> _bloqueioStream;
 
   Publicacao get publicacao => widget.publicacao;
   bool get _ehMinhaPublicacao {
@@ -48,6 +52,10 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
     _interesseControl = InteresseControl();
     _chatControl = ChatControl();
     _denunciaControl = DenunciaControl();
+    _bloqueioControl = BloqueioControl();
+
+    _bloqueioStream = _bloqueioControl
+        .acompanharBloqueioEntreUsuarios(publicacao.usuarioId);
 
     if (!_ehMinhaPublicacao) {
       _carregarInteresse();
@@ -106,6 +114,8 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
       context: context,
       titulo: 'Denunciar publicação',
       motivos: DenunciaControl.motivosPublicacao,
+      usuarioId: publicacao.usuarioId,
+      nomeUsuario: publicacao.nomeDoador,
     );
 
     if (!mounted || resultado == null) return;
@@ -653,6 +663,43 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
     );
   }
 
+  Widget _construirAvisoBloqueio() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.block_outlined,
+              size: 48,
+              color: AppColors.muted,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Publicação indisponível',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Você não vê as publicações desta pessoa e as mensagens estão desativadas.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: AppColors.muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _construirAcoes() {
     if (_carregandoInteresse || _processandoInteresse) {
       return const SizedBox(
@@ -709,46 +756,86 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9F8),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back),
-          color: Colors.black87,
-          tooltip: 'Voltar',
-        ),
-        actions: _ehMinhaPublicacao
-            ? const <Widget>[]
-            : [
-          IconButton(
-            onPressed: _enviandoDenuncia ? null : _denunciarPublicacao,
-            icon: const Icon(Icons.flag_outlined),
-            color: Colors.black87,
-            tooltip: 'Denunciar publicação',
+    return StreamBuilder<bool>(
+      stream: _bloqueioStream,
+      builder: (context, snapshot) {
+        final verificandoBloqueio =
+            !_ehMinhaPublicacao &&
+                !snapshot.hasData &&
+                !snapshot.hasError;
+
+        final erroBloqueio =
+            !_ehMinhaPublicacao && snapshot.hasError;
+
+        final bloqueado =
+            !_ehMinhaPublicacao && snapshot.data == true;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8F9F8),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            leading: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back),
+              color: Colors.black87,
+              tooltip: 'Voltar',
+            ),
+            actions: _ehMinhaPublicacao
+                ? const <Widget>[]
+                : [
+              IconButton(
+                onPressed:
+                _enviandoDenuncia ? null : _denunciarPublicacao,
+                icon: const Icon(Icons.flag_outlined),
+                color: Colors.black87,
+                tooltip: 'Denunciar publicação',
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_construirGaleria(), _construirConteudo()],
-        ),
-      ),
-      bottomNavigationBar: _ehMinhaPublicacao
-          ? null
-          : SafeArea(
-        top: false,
-        child: Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: _construirAcoes(),
-        ),
-      ),
+          body: verificandoBloqueio
+              ? const Center(
+            child: CircularProgressIndicator(),
+          )
+              : erroBloqueio
+              ? const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Não foi possível verificar o bloqueio. Tente novamente.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+              : bloqueado
+              ? _construirAvisoBloqueio()
+              : SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _construirGaleria(),
+                _construirConteudo(),
+              ],
+            ),
+          ),
+          bottomNavigationBar:
+          _ehMinhaPublicacao ||
+              verificandoBloqueio ||
+              erroBloqueio ||
+              bloqueado
+              ? null
+              : SafeArea(
+            top: false,
+            child: Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: _construirAcoes(),
+            ),
+          ),
+        );
+      },
     );
   }
 }
