@@ -40,7 +40,7 @@ A tela Mensagens apresenta as conversas do usuário autenticado, incluindo o nom
 
 O sistema de denúncias está implementado. Os usuários podem denunciar publicações e também denunciar outros participantes de uma conversa, permitindo que tanto o doador quanto o interessado realizem denúncias. Os registros são armazenados no Cloud Firestore para futura análise administrativa.
 
-O sistema de notificações está implementado. O aplicativo gera notificações internas para eventos relacionados a interesses, escolha de beneficiários, conclusão e reabertura de doações e envio de mensagens. As notificações são armazenadas no Cloud Firestore, vinculadas ao usuário destinatário, e atualizadas em tempo real. A Home apresenta um indicador da quantidade de notificações não lidas, e o usuário pode acessar a tela de notificações, visualizar os registros e marcá-los como lidos.
+O sistema de notificações está implementado. O aplicativo gera notificações internas para eventos relacionados a interesses, escolha de beneficiários, conclusão e reabertura de doações e envio de mensagens. As notificações são armazenadas no Cloud Firestore, vinculadas ao usuário destinatário, e atualizadas em tempo real. A Home apresenta um indicador da quantidade de notificações não lidas, e o usuário pode acessar a tela de notificações, visualizar os registros, marcá-los individualmente como lidos ou utilizar a opção "Marcar todas como lidas".
 
 A tela **Ajuda e segurança** está implementada e pode ser acessada pela opção correspondente no perfil. Ela apresenta o processo de doação em quatro passos e perguntas frequentes com orientações sobre o funcionamento das doações, cuidados durante as conversas, retirada segura, transporte, denúncias e privacidade. Também apresenta orientações sobre como denunciar e bloquear participantes.
 
@@ -407,6 +407,11 @@ Funcionalidades implementadas:
 - Exibição de título, mensagem e data de criação.
 - Indicador da quantidade de notificações não lidas na Home.
 - Navegação para a tela correspondente ao evento da notificação.
+- Marcação individual de notificações como lidas.
+- Marcação de todas as notificações não lidas em lote.
+- Exibição da opção "Marcar todas como lidas" somente quando existem notificações não lidas.
+- Atualização em lote dos documentos no Cloud Firestore, com até 500 operações por lote.
+- Atualização automática do indicador de notificações não lidas na Home.
 
 O sistema contempla cinco tipos de notificações:
 
@@ -421,6 +426,8 @@ As notificações são criadas junto às operações correspondentes no Cloud Fi
 Ao selecionar uma notificação, o aplicativo identifica seu tipo e direciona o usuário para a tela correspondente. As notificações de novo interesse abrem a `InteressadosScreen`, as notificações de mensagem abrem a `ChatScreen` e as demais notificações relacionadas a publicações abrem a `DetalhesPublicacaoScreen`.
 
 O sistema utiliza notificações internas armazenadas no Firestore, sem implementação de notificações push externas.
+
+A tela permite marcar notificações individualmente ou utilizar a opção "Marcar todas como lidas", exibida somente quando existem notificações pendentes de leitura. A operação em lote atualiza os documentos no Cloud Firestore em grupos de até 500 operações, preservando os registros e seus demais dados.
 
 ### 16. Ajuda e segurança
 
@@ -464,7 +471,7 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, dos bloqueios entre usuários, dos registros de doações concluídas, das conversas, das mensagens, das notificações e das denúncias.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, dos bloqueios entre usuários, dos registros de doações concluídas, das avaliações, das conversas, das mensagens, das notificações e das denúncias.
 
 #### Coleção `usuarios`
 
@@ -989,7 +996,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos bloqueios entre usuários, dos registros de doações, das avaliações e seus resumos, das conversas, das mensagens, das notificações e das denúncias.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos bloqueios entre usuários, dos registros de doações, das avaliações, das conversas, das mensagens, das notificações e das denúncias.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -1252,6 +1259,11 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Exibição dos resumos de avaliações na tela de interessados.
 - [x] Substituição da opção "Avaliar" pelas estrelas após o envio.
 - [x] Preservação dos resumos de avaliações durante as atualizações de estado da doação.
+- [x] Marcação individual de notificações como lidas.
+- [x] Marcação de todas as notificações não lidas em lote.
+- [x] Exibição da opção somente quando existem notificações não lidas.
+- [x] Ocultação da opção após todas as notificações serem marcadas como lidas.
+- [x] Atualização do contador de notificações não lidas na Home.
 
 A análise estática com `flutter analyze` foi executada durante o desenvolvimento. Na verificação mais recente, não foram identificados erros. Permanecem apontamentos informativos e avisos de lint e depreciação no projeto.
 
