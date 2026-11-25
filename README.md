@@ -38,7 +38,9 @@ O sistema de denúncias está implementado. Os usuários podem denunciar publica
 
 O sistema de notificações está implementado. O aplicativo gera notificações internas para eventos relacionados a interesses, escolha de beneficiários, conclusão e reabertura de doações e envio de mensagens. As notificações são armazenadas no Cloud Firestore, vinculadas ao usuário destinatário, e atualizadas em tempo real. A Home apresenta um indicador da quantidade de notificações não lidas, e o usuário pode acessar a tela de notificações, visualizar os registros e marcá-los como lidos.
 
-A tela **Ajuda e segurança** está implementada e pode ser acessada pela opção correspondente no perfil. Ela apresenta o processo de doação em quatro passos e perguntas frequentes com orientações sobre o funcionamento das doações, cuidados durante as conversas, retirada segura, transporte, denúncias e privacidade. Também informa sobre o estado atual da funcionalidade de bloqueio de usuários.
+A tela **Ajuda e segurança** está implementada e pode ser acessada pela opção correspondente no perfil. Ela apresenta o processo de doação em quatro passos e perguntas frequentes com orientações sobre o funcionamento das doações, cuidados durante as conversas, retirada segura, transporte, denúncias e privacidade. Também apresenta orientações sobre como denunciar e bloquear participantes.
+
+O bloqueio de usuários está implementado. A funcionalidade permite bloquear e desbloquear participantes pelo diálogo de denúncia, consultar a lista de usuários bloqueados no perfil e ocultar publicações e desativar mensagens entre contas bloqueadas, preservando o histórico das conversas.
 
 ## Funcionalidades implementadas
 
@@ -130,6 +132,7 @@ A `ProfileScreen` permite visualizar os dados do usuário autenticado:
 - Área de estatísticas de doações, ainda sem dados reais.
 - Opções de menu para histórico de doações, ajuda e segurança e painel administrativo.
 - Opção de sair da conta.
+- Lista de usuários bloqueados, exibida quando há usuários bloqueados, com opção de desbloqueio.
 
 A tela consulta os dados do usuário no Cloud Firestore por meio do `UsuarioControl`, utilizando o UID da conta autenticada.
 
@@ -194,6 +197,8 @@ Funcionalidades implementadas:
 - Registro de interesse no Cloud Firestore.
 - Exibição das opções "Cancelar interesse" e "Conversar" após o registro.
 - Cancelamento do interesse com remoção do respectivo documento no Firestore.
+- Opção de bloquear ou desbloquear o doador pelo diálogo de denúncia.
+- Ocultação dos detalhes e das ações da publicação quando existe bloqueio entre os usuários.
 
 A tela identifica se a publicação pertence ao usuário autenticado por meio da comparação entre o UID da sessão e o campo `usuarioId` da publicação.
 
@@ -309,6 +314,9 @@ Funcionalidades implementadas:
 - Botão de denúncia disponível para os dois participantes da conversa.
 - Identificação automática do outro participante como denunciado.
 - Formulário de denúncia com motivos predefinidos e descrição opcional.
+- Opção de bloquear ou desbloquear o outro participante pelo diálogo de denúncia.
+- Desativação do envio de mensagens quando existe bloqueio entre os participantes.
+- Preservação do histórico de mensagens durante o bloqueio.
 
 O sistema permite denúncias recíprocas entre os participantes. O interessado pode denunciar o doador, e o doador pode denunciar o interessado. O título do formulário é ajustado conforme o usuário autenticado.
 
@@ -428,7 +436,7 @@ A seção de perguntas frequentes apresenta orientações sobre:
 
 As orientações reforçam que todas as doações são gratuitas e que o Desapegaí não vende produtos nem intermedeia pagamentos.
 
-A tela também explica que as denúncias podem ser registradas pela tela de detalhes da publicação ou pela conversa. O bloqueio de usuários ainda está em desenvolvimento e será disponibilizado em uma próxima atualização.
+A tela também explica que as denúncias podem ser registradas pela tela de detalhes da publicação ou pela conversa, além de apresentar orientações sobre como bloquear usuários.
 
 ## Autenticação e armazenamento
 
@@ -440,7 +448,7 @@ O aplicativo observa o estado de autenticação por meio de `authStateChanges()`
 
 ### Cloud Firestore
 
-O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, dos registros de doações concluídas, das conversas, das mensagens, das notificações e das denúncias.
+O Cloud Firestore é utilizado para armazenar os dados dos usuários, das publicações, dos interesses demonstrados pelos usuários, dos bloqueios entre usuários, dos registros de doações concluídas, das conversas, das mensagens, das notificações e das denúncias.
 
 #### Coleção `usuarios`
 
@@ -457,6 +465,31 @@ Cada documento utiliza o próprio UID como identificador e armazena os seguintes
 | `sobreMim` | Descrição pessoal do usuário |
 
 O `UsuarioControl` é responsável por consultar e atualizar os dados pessoais do usuário no Firestore.
+
+#### Subcoleção `bloqueados`
+
+Cada usuário possui uma subcoleção `bloqueados` dentro do próprio documento na coleção `usuarios`. Ela armazena os usuários bloqueados pela conta autenticada.
+
+A estrutura é organizada da seguinte forma:
+
+```text
+usuarios/
+  UID_DO_USUARIO/
+    bloqueados/
+      UID_DO_USUARIO_BLOQUEADO/
+```
+
+Os campos armazenados são:
+
+| Campo | Descrição |
+|---|---|
+| `usuarioId` | UID do usuário bloqueado |
+| `nome` | Nome do usuário bloqueado no momento do registro |
+| `dataBloqueio` | Data e horário do bloqueio, definidos pelo servidor |
+
+O `BloqueioControl` é responsável por bloquear, desbloquear e acompanhar os usuários bloqueados. A consulta considera tanto os usuários bloqueados pela conta atual quanto aqueles que bloquearam essa conta.
+
+O acompanhamento utiliza atualizações em tempo real. A consulta por grupo da subcoleção `bloqueados` utiliza o campo `usuarioId` e requer um índice com escopo de grupo de coleções no Cloud Firestore.
 
 #### Subcoleção `notificacoes`
 
@@ -648,13 +681,20 @@ Os documentos são criados com status inicial `pendente`. A consulta e o gerenci
 
 ### Regras de segurança
 
-O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `doacoes`, `conversas`, `denuncias` e às subcoleções `interesses`, `mensagens` e `notificacoes`.
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `doacoes`, `conversas`, `denuncias` e às subcoleções `interesses`, `mensagens`, `notificacoes` e `bloqueados`.
 
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
 Na coleção `usuarios`, as regras restringem a consulta e a atualização do documento ao próprio usuário. A listagem geral e a exclusão de perfis são bloqueadas.
 
 As regras da coleção `usuarios` validam os campos obrigatórios durante a criação do perfil. As atualizações são restritas aos campos `nome`, `cidade` e `sobreMim`, impedindo alterações no UID e no e-mail, bem como a inclusão de campos não previstos no modelo.
+
+A subcoleção `bloqueados` possui regras específicas:
+
+- Somente o proprietário da lista pode criar e excluir registros de bloqueio.
+- A listagem da própria subcoleção é restrita ao proprietário.
+- A consulta por grupo de coleções permite identificar documentos nos quais o usuário autenticado aparece como usuário bloqueado.
+- A criação de registros valida o UID do usuário bloqueado, o nome e a data definida pelo servidor.
 
 A subcoleção `notificacoes`, localizada dentro de `usuarios`, possui regras específicas:
 
@@ -692,6 +732,7 @@ A subcoleção `interesses` possui regras específicas:
 - O usuário pode cancelar somente o próprio interesse.
 - Validação da cidade conforme o perfil do usuário.
 - Limitação da mensagem a até 250 caracteres.
+- A criação de interesse é bloqueada quando existe um registro de bloqueio entre o interessado e o proprietário da publicação.
 
 A coleção `doacoes` possui regras específicas:
 
@@ -721,6 +762,9 @@ A coleção `conversas` e sua subcoleção `mensagens` possuem regras específic
 - Somente o doador pode atualizar o título e a imagem da publicação nas conversas, desde que os novos valores correspondam aos dados registrados na publicação.
 - Somente o doador pode excluir os documentos das conversas e suas mensagens.
 - As atualizações das informações da publicação não permitem alterar os participantes ou os dados de identificação da conversa.
+- A criação de conversas é bloqueada quando existe um bloqueio entre os participantes.
+- O envio de mensagens e a atualização da última mensagem da conversa são bloqueados enquanto existir um bloqueio entre os participantes.
+- A leitura das mensagens anteriores permanece permitida, preservando o histórico da conversa.
 
 A coleção `denuncias` possui regras específicas:
 
@@ -788,6 +832,7 @@ desapegai/
 │   ├── app.dart
 │   ├── firebase_options.dart
 │   ├── controller/
+│   │   ├── bloqueio_control.dart
 │   │   ├── cadastro_control.dart
 │   │   ├── chat_control.dart
 │   │   ├── denuncia_control.dart
@@ -807,7 +852,8 @@ desapegai/
 │   │   ├── mensagem.dart
 │   │   ├── notificacao.dart
 │   │   ├── publicacao.dart
-│   │   └── usuario.dart
+│   │   ├── usuario.dart
+│   │   └── usuario_bloqueado.dart
 │   ├── screens/
 │   │   ├── ajuda_seguranca_screen.dart
 │   │   ├── auth_gate.dart
@@ -882,7 +928,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos registros de doações, das conversas, das mensagens, das notificações e das denúncias.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos bloqueios entre usuários, dos registros de doações, das conversas, das mensagens, das notificações e das denúncias.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -908,7 +954,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 Clone o repositório:
 
 ```bash
-git clone https://github.com/Feli2099/Desapegai.git
+git clone https://github.com/Queirozexe/Desapegai.git
 cd Desapegai
 ```
 
@@ -1122,6 +1168,13 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Expansão e recolhimento das perguntas.
 - [x] Verificação de que a primeira pergunta começa expandida.
 - [x] Navegação de retorno ao perfil.
+- [x] Bloqueio e desbloqueio de usuários nos dois sentidos, utilizando duas contas.
+- [x] Ocultação das publicações entre usuários bloqueados.
+- [x] Desativação do envio de mensagens para ambos os participantes.
+- [x] Preservação do histórico das conversas durante o bloqueio.
+- [x] Exibição da lista de usuários bloqueados no perfil.
+- [x] Restauração da visibilidade das publicações após o desbloqueio.
+- [x] Restauração do envio de mensagens após o desbloqueio.
 
 A análise estática com `flutter analyze` foi executada durante o desenvolvimento. Na verificação mais recente, não foram identificados erros. Permanecem apontamentos informativos e avisos de lint e depreciação no projeto.
 
@@ -1130,7 +1183,6 @@ A análise estática com `flutter analyze` foi executada durante o desenvolvimen
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
 - [ ] Avaliações.
 - [ ] Implementação do painel administrativo, incluindo consulta e gerenciamento das denúncias.
-- [ ] Bloqueio de usuários e restrição de interações entre contas bloqueadas.
 - [ ] Testes de interface em diferentes dispositivos Android.
 - [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
 
@@ -1138,7 +1190,7 @@ A análise estática com `flutter analyze` foi executada durante o desenvolvimen
 
 ### Funcionalidades posteriores
 
-- Desenvolver avaliações e bloqueio de usuários.
+- Desenvolver avaliações.
 - Implementar o painel administrativo para consulta e gerenciamento das denúncias.
 - Aprimorar a segurança da infraestrutura e do upload de imagens.
 
