@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../controller/doacao_control.dart';
+import '../controller/avaliacao_control.dart';
+import '../model/avaliacao.dart';
 import '../model/doacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
+import '../widgets/input.dart';
 
 class HistoricoDoacoesScreen extends StatefulWidget {
   const HistoricoDoacoesScreen({super.key});
@@ -14,6 +17,8 @@ class HistoricoDoacoesScreen extends StatefulWidget {
 
 class _HistoricoDoacoesScreenState extends State<HistoricoDoacoesScreen> {
   final DoacaoControl _doacaoControl = DoacaoControl();
+  final AvaliacaoControl _avaliacaoControl = AvaliacaoControl();
+  final Map<String, Stream<Avaliacao?>> _streamsAvaliacoes = {};
 
   late final Stream<List<Doacao>> _doacoesFeitasStream;
   late final Stream<List<Doacao>> _doacoesRecebidasStream;
@@ -46,6 +51,81 @@ class _HistoricoDoacoesScreenState extends State<HistoricoDoacoesScreen> {
     }
 
     return status;
+  }
+
+  Widget _construirEstrelas(int nota) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        5,
+            (index) => Icon(
+          index < nota ? Icons.star : Icons.star_border,
+          size: 17,
+          color: index < nota ? AppColors.gold : AppColors.muted,
+        ),
+      ),
+    );
+  }
+
+  Widget _construirAcaoAvaliacao(Doacao doacao) {
+    final doacaoId = doacao.id;
+
+    if (doacaoId == null || doacaoId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final stream = _streamsAvaliacoes.putIfAbsent(
+      doacaoId,
+          () => _avaliacaoControl.acompanharAvaliacaoDaDoacao(doacaoId),
+    );
+
+    return StreamBuilder<Avaliacao?>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const SizedBox(
+            width: 100,
+            height: 40,
+            child: Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return const SizedBox(
+            width: 100,
+            child: Text(
+              'Não foi possível verificar',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.muted,
+              ),
+            ),
+          );
+        }
+
+        final avaliacao = snapshot.data;
+
+        if (avaliacao != null) {
+          return Tooltip(
+            message: 'Sua avaliação: ${avaliacao.nota} de 5 estrelas',
+            child: _construirEstrelas(avaliacao.nota),
+          );
+        }
+
+        return SizedBox(
+          width: 100,
+          height: 40,
+          child: Botoes(
+            'Avaliar',
+            onPressed: () => _abrirDialogoAvaliacao(doacao),
+          ),
+        );
+      },
+    );
   }
 
   Widget _construirImagem(Doacao doacao) {
@@ -101,6 +181,42 @@ class _HistoricoDoacoesScreenState extends State<HistoricoDoacoesScreen> {
           fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
+      ),
+    );
+  }
+
+  Future<void> _abrirDialogoAvaliacao(Doacao doacao) async {
+    final doacaoId = doacao.id;
+
+    if (doacaoId == null || doacaoId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível identificar a doação.'),
+        ),
+      );
+      return;
+    }
+
+    final resultado = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return FormularioAvaliacao(
+          doacaoId: doacaoId,
+          tituloPublicacao: doacao.tituloPublicacao,
+          avaliacaoControl: _avaliacaoControl,
+        );
+      },
+    );
+
+    if (!mounted || resultado != true) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Avaliação enviada com sucesso!'),
       ),
     );
   }
@@ -175,14 +291,7 @@ class _HistoricoDoacoesScreenState extends State<HistoricoDoacoesScreen> {
                     _construirEtiquetaStatus(doacao.status),
                     const Spacer(),
                     if (doacao.status == 'concluida')
-                      SizedBox(
-                        width: 100,
-                        height: 40,
-                        child: Botoes(
-                          'Avaliar',
-                          onPressed: () {},
-                        ),
-                      ),
+                      _construirAcaoAvaliacao(doacao),
                   ],
                 ),
 
@@ -368,6 +477,221 @@ class _HistoricoDoacoesScreenState extends State<HistoricoDoacoesScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class FormularioAvaliacao extends StatefulWidget {
+  final String doacaoId;
+  final String tituloPublicacao;
+  final AvaliacaoControl avaliacaoControl;
+
+  const FormularioAvaliacao({
+    super.key,
+    required this.doacaoId,
+    required this.tituloPublicacao,
+    required this.avaliacaoControl,
+  });
+
+  @override
+  State<FormularioAvaliacao> createState() =>
+      _FormularioAvaliacaoState();
+}
+
+class _FormularioAvaliacaoState extends State<FormularioAvaliacao> {
+  final TextEditingController _comentarioController =
+  TextEditingController();
+
+  int _notaSelecionada = 0;
+  bool _enviando = false;
+  String? _mensagemErro;
+
+  @override
+  void dispose() {
+    _comentarioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enviarAvaliacao() async {
+    if (_notaSelecionada == 0 || _enviando) {
+      return;
+    }
+
+    setState(() {
+      _enviando = true;
+      _mensagemErro = null;
+    });
+
+    try {
+      await widget.avaliacaoControl.avaliarDoacao(
+        doacaoId: widget.doacaoId,
+        nota: _notaSelecionada,
+        comentario: _comentarioController.text,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (erro) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _enviando = false;
+        _mensagemErro = erro.toString().replaceFirst(
+          'Exception: ',
+          '',
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_enviando,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(28),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              22,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Como foi a experiência?',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1B2B24),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    widget.tituloPublicacao,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      final estrela = index + 1;
+                      final selecionada = estrela <= _notaSelecionada;
+
+                      return IconButton(
+                        onPressed: _enviando
+                            ? null
+                            : () {
+                          setState(() {
+                            _notaSelecionada = estrela;
+                            _mensagemErro = null;
+                          });
+                        },
+                        icon: Icon(
+                          selecionada
+                              ? Icons.star
+                              : Icons.star_border,
+                          size: 36,
+                          color: selecionada
+                              ? AppColors.gold
+                              : AppColors.muted,
+                        ),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 52,
+                          height: 52,
+                        ),
+                        padding: EdgeInsets.zero,
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 22),
+                  Input(
+                    'Comentário (opcional)',
+                    'A conversa foi tranquila? A retirada deu certo?',
+                    controller: _comentarioController,
+                    maxLines: 3,
+                    maxLength: 500,
+                    keyboardType: TextInputType.multiline,
+                    mostrarContador: false,
+                  ),
+                  if (_mensagemErro != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      _mensagemErro!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: Botoes(
+                            _enviando
+                                ? 'Enviando...'
+                                : _notaSelecionada > 0
+                                ? 'Enviar avaliação'
+                                : 'Escolha uma nota',
+                            onPressed: _notaSelecionada == 0 || _enviando
+                                ? null
+                                : _enviarAvaliacao,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: _enviando
+                                ? null
+                                : () {
+                              Navigator.of(context).pop(false);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.green,
+                              side: const BorderSide(
+                                color: AppColors.green,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancelar'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

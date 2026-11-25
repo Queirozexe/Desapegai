@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import '../model/publicacao.dart';
+import '../model/avaliacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
 import '../widgets/dialogo_denuncia.dart';
@@ -9,6 +10,7 @@ import '../controller/denuncia_control.dart';
 import '../controller/interesse_control.dart';
 import '../controller/chat_control.dart';
 import '../controller/bloqueio_control.dart';
+import '../controller/avaliacao_control.dart';
 
 import 'chat_screen.dart';
 
@@ -36,6 +38,8 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
   late final InteresseControl _interesseControl;
   late final BloqueioControl _bloqueioControl;
   late final Stream<bool> _bloqueioStream;
+  late final AvaliacaoControl _avaliacaoControl;
+  late final Stream<ResumoAvaliacoes> _resumoAvaliacoesStream;
 
   Publicacao get publicacao => widget.publicacao;
   bool get _ehMinhaPublicacao {
@@ -53,6 +57,9 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
     _chatControl = ChatControl();
     _denunciaControl = DenunciaControl();
     _bloqueioControl = BloqueioControl();
+    _avaliacaoControl = AvaliacaoControl();
+    _resumoAvaliacoesStream = _avaliacaoControl
+        .acompanharResumoAvaliacoes(publicacao.usuarioId);
 
     _bloqueioStream = _bloqueioControl
         .acompanharBloqueioEntreUsuarios(publicacao.usuarioId);
@@ -105,6 +112,56 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
         });
       }
     }
+  }
+
+  Widget _construirResumoAvaliacao() {
+    return StreamBuilder<ResumoAvaliacoes>(
+      stream: _resumoAvaliacoesStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Text(
+            'Avaliação indisponível',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 12,
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const SizedBox(
+            height: 18,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        return Row(
+          children: [
+            const Icon(
+              Icons.star_rounded,
+              color: Color(0xFFF5B942),
+              size: 17,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              snapshot.data!.texto,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _denunciarPublicacao() async {
@@ -514,6 +571,10 @@ class _DetalhesPublicacaoScreenState extends State<DetalhesPublicacaoScreen> {
                   'Participante da comunidade Desapegaí',
                   style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
+
+                const SizedBox(height: 5),
+
+                _construirResumoAvaliacao(),
               ],
             ),
           ),

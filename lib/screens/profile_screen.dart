@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../theme/app_theme.dart';
 import '../controller/usuario_control.dart';
 import '../controller/sessao_control.dart';
 import '../controller/bloqueio_control.dart';
+import '../controller/doacao_control.dart';
+import '../controller/avaliacao_control.dart';
+import '../model/doacao.dart';
+import '../model/avaliacao.dart';
 import '../model/usuario_bloqueado.dart';
 import '../model/usuario.dart';
 import 'edit_profile_screen.dart';
@@ -24,9 +29,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UsuarioControl _usuarioControl = UsuarioControl();
   final SessaoControl _sessaoControl = SessaoControl();
   final BloqueioControl _bloqueioControl = BloqueioControl();
+  final DoacaoControl _doacaoControl = DoacaoControl();
+  final AvaliacaoControl _avaliacaoControl = AvaliacaoControl();
 
   late Future<Usuario?> _usuarioFuture;
   late final Stream<List<UsuarioBloqueado>> _usuariosBloqueadosStream;
+  late final Stream<List<Doacao>> _doacoesFeitasStream;
+  late final Stream<List<Doacao>> _doacoesRecebidasStream;
+  late final Stream<ResumoAvaliacoes>? _resumoAvaliacoesStream;
 
   bool _processandoDesbloqueio = false;
 
@@ -38,6 +48,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     _usuariosBloqueadosStream =
         _bloqueioControl.acompanharUsuariosBloqueados();
+    _doacoesFeitasStream = _doacaoControl.acompanharDoacoesFeitas();
+    _doacoesRecebidasStream = _doacaoControl.acompanharDoacoesRecebidas();
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    _resumoAvaliacoesStream = uid == null
+        ? null
+        : _avaliacaoControl.acompanharResumoAvaliacoes(uid);
   }
 
   String _gerarIniciais(String nome) {
@@ -97,6 +115,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       _aviso('Não foi possível sair. Tente novamente.');
     }
+  }
+
+  Widget _construirEstatisticas() {
+    return StreamBuilder<List<Doacao>>(
+      stream: _doacoesFeitasStream,
+      builder: (context, feitasSnapshot) {
+        final doacoesFeitas = feitasSnapshot.data
+            ?.where((doacao) => doacao.status == 'concluida')
+            .length
+            .toString() ??
+            '—';
+
+        return StreamBuilder<List<Doacao>>(
+          stream: _doacoesRecebidasStream,
+          builder: (context, recebidasSnapshot) {
+            final itensRecebidos = recebidasSnapshot.data
+                ?.where((doacao) => doacao.status == 'concluida')
+                .length
+                .toString() ??
+                '—';
+
+            if (_resumoAvaliacoesStream == null) {
+              return Row(
+                children: [
+                  Expanded(
+                    child: _buildEstatistica(
+                      valor: doacoesFeitas,
+                      descricao: 'doações feitas',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildEstatistica(
+                      valor: itensRecebidos,
+                      descricao: 'itens recebidos',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildEstatistica(
+                      valor: '—',
+                      descricao: 'avaliação',
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return StreamBuilder<ResumoAvaliacoes>(
+              stream: _resumoAvaliacoesStream,
+              builder: (context, avaliacaoSnapshot) {
+                final avaliacao = avaliacaoSnapshot.data?.texto ?? '—';
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _buildEstatistica(
+                        valor: doacoesFeitas,
+                        descricao: 'doações feitas',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildEstatistica(
+                        valor: itensRecebidos,
+                        descricao: 'itens recebidos',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildEstatistica(
+                        valor: avaliacao,
+                        descricao: 'avaliação',
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildEstatistica({required String valor, required String descricao}) {
@@ -454,34 +555,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         const SizedBox(height: 12),
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildEstatistica(
-                                valor: '—',
-                                descricao: 'doações feitas',
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-
-                            Expanded(
-                              child: _buildEstatistica(
-                                valor: '—',
-                                descricao: 'itens recebidos',
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-
-                            Expanded(
-                              child: _buildEstatistica(
-                                valor: '—',
-                                descricao: 'avaliação',
-                              ),
-                            ),
-                          ],
-                        ),
+                        _construirEstatisticas(),
 
                         const SizedBox(height: 16),
 

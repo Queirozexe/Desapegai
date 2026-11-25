@@ -1052,6 +1052,84 @@ service cloud.firestore {
         allow delete: if false;
     }
 
+    match /avaliacoes/{avaliacaoId} {
+        allow read: if request.auth != null;
+
+        allow create: if request.auth != null
+                      && request.resource.data.keys().hasOnly([
+                        'doacaoId',
+                        'publicacaoId',
+                        'avaliadorId',
+                        'avaliadoId',
+                        'nota',
+                        'comentario',
+                        'dataCriacao'
+                      ])
+                      && request.resource.data.keys().hasAll([
+                        'doacaoId',
+                        'publicacaoId',
+                        'avaliadorId',
+                        'avaliadoId',
+                        'nota',
+                        'comentario',
+                        'dataCriacao'
+                      ])
+                      && request.resource.data.doacaoId is string
+                      && request.resource.data.doacaoId.size() > 0
+                      && request.resource.data.publicacaoId is string
+                      && request.resource.data.publicacaoId.size() > 0
+                      && request.resource.data.avaliadorId == request.auth.uid
+                      && request.resource.data.avaliadoId is string
+                      && request.resource.data.avaliadoId != request.auth.uid
+                      && avaliacaoId == request.resource.data.doacaoId
+                         + '_' + request.auth.uid
+                      && request.resource.data.nota is int
+                      && request.resource.data.nota >= 1
+                      && request.resource.data.nota <= 5
+                      && request.resource.data.comentario is string
+                      && request.resource.data.comentario.size() <= 500
+                      && request.resource.data.dataCriacao == request.time
+                      && exists(
+                        /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                      )
+                      && get(
+                        /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                      ).data.status == 'concluida'
+                      && get(
+                        /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                      ).data.publicacaoId == request.resource.data.publicacaoId
+                      && get(
+                        /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                      ).data.participantes is list
+                      && get(
+                        /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                      ).data.participantes.size() == 2
+                      && request.auth.uid in get(
+                        /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                      ).data.participantes
+                      && (
+                        (
+                          get(
+                            /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                          ).data.doadorId == request.auth.uid
+                          && request.resource.data.avaliadoId == get(
+                            /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                          ).data.beneficiarioId
+                        )
+                        ||
+                        (
+                          get(
+                            /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                          ).data.beneficiarioId == request.auth.uid
+                          && request.resource.data.avaliadoId == get(
+                            /databases/$(database)/documents/doacoes/$(request.resource.data.doacaoId)
+                          ).data.doadorId
+                        )
+                      );
+
+        allow update, delete: if false;
+    }
+
     match /denuncias/{denunciaId} {
         allow create: if request.auth != null
                       && request.resource.data.keys().hasOnly([

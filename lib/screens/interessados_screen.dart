@@ -4,8 +4,10 @@ import '../controller/interesse_control.dart';
 import '../controller/publicacao_control.dart';
 import '../controller/chat_control.dart';
 import '../controller/doacao_control.dart';
+import '../controller/avaliacao_control.dart';
 import '../model/interessado.dart';
 import '../model/publicacao.dart';
+import '../model/avaliacao.dart';
 import '../theme/app_theme.dart';
 import '../widgets/botoes.dart';
 
@@ -30,6 +32,8 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
   final PublicacaoControl _publicacaoControl = PublicacaoControl();
   final ChatControl _chatControl = ChatControl();
   final DoacaoControl _doacaoControl = DoacaoControl();
+  final AvaliacaoControl _avaliacaoControl = AvaliacaoControl();
+  final Map<String, Stream<ResumoAvaliacoes>> _resumosAvaliacoesStreams = {};
 
   String? _usuarioAbrindoConversaId;
   String? _usuarioEscolhidoId;
@@ -282,6 +286,65 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
     }
   }
 
+  Stream<ResumoAvaliacoes> _obterResumoAvaliacoesStream(
+      String usuarioId,
+      ) {
+    return _resumosAvaliacoesStreams.putIfAbsent(
+      usuarioId,
+          () => _avaliacaoControl.acompanharResumoAvaliacoes(usuarioId),
+    );
+  }
+
+  Widget _construirResumoAvaliacao(String usuarioId) {
+    return StreamBuilder<ResumoAvaliacoes>(
+      stream: _obterResumoAvaliacoesStream(usuarioId),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Text(
+            'Avaliação indisponível',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 12,
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const SizedBox(
+            height: 18,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        return Row(
+          children: [
+            const Icon(
+              Icons.star_rounded,
+              color: Color(0xFFF5B942),
+              size: 17,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              snapshot.data!.texto,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   String _gerarIniciais(String nome) {
     final partes = nome
         .trim()
@@ -495,7 +558,11 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
                         color: Color(0xFF1B2B24),
                       ),
                     ),
+                    const SizedBox(height: 3),
+                    _construirResumoAvaliacao(interessado.usuarioId),
+
                     const SizedBox(height: 4),
+
                     Row(
                       children: [
                         const Icon(
@@ -687,46 +754,50 @@ class _InteressadosScreenState extends State<InteressadosScreen> {
       children: [
         _construirResumoPublicacao(),
 
-        if (_doacaoConcluida) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFDDEFE3),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      color: Color(0xFF14503A),
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Doação concluída!',
-                      style: TextStyle(
+        Visibility(
+          visible: _doacaoConcluida,
+          maintainState: true,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDDEFE3),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
                         color: Color(0xFF14503A),
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Obrigado por dar uma nova vida a esse item.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: Color(0xFF34443C),
+                      SizedBox(width: 8),
+                      Text(
+                        'Doação concluída!',
+                        style: TextStyle(
+                          color: Color(0xFF14503A),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  SizedBox(height: 8),
+                  Text(
+                    'Obrigado por dar uma nova vida a esse item.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: Color(0xFF34443C),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
 
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) ...[
