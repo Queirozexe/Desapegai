@@ -28,7 +28,11 @@ O gerenciamento dos estados da publicação está implementado, incluindo as sit
 
 O histórico de doações está implementado. A tela permite consultar separadamente as doações feitas e as doações recebidas pelo usuário autenticado. Cada conclusão gera um registro na coleção `doacoes` do Cloud Firestore, preservando informações da publicação, do doador, do beneficiário e da data de conclusão. Quando uma doação é reaberta, o registro correspondente recebe o status `reaberta`, mantendo o histórico da conclusão desfeita. Caso a doação seja concluída novamente, um novo registro é criado, sem sobrescrever o anterior.
 
-A tela também apresenta o botão "Avaliar" nas doações concluídas. Por enquanto, o botão está implementado somente na parte visual, sem funcionalidade de avaliação.
+O sistema de avaliações está implementado. Após a conclusão de uma doação, tanto o doador quanto o beneficiário podem avaliar a outra parte, atribuindo uma nota de 1 a 5 estrelas e adicionando um comentário opcional de até 500 caracteres. Cada participante pode realizar uma avaliação por registro de doação.
+
+As avaliações são armazenadas na coleção `avaliacoes` do Cloud Firestore. O aplicativo apresenta a média e a quantidade de avaliações no perfil, nos detalhes das publicações e na tela de interessados. Usuários sem avaliações são identificados como "Novo".
+
+No histórico de doações, o usuário pode avaliar a outra parte por meio de uma janela inferior com seleção de estrelas e campo de comentário. Após o envio, o botão "Avaliar" é substituído pela nota atribuída.
 
 A comunicação entre usuários está implementada. Cada pessoa interessada pode conversar individualmente com o doador da publicação, independentemente de ter sido escolhida para receber a doação. As conversas são armazenadas no Cloud Firestore, com envio e recebimento de mensagens em tempo real.
 
@@ -129,7 +133,9 @@ A `ProfileScreen` permite visualizar os dados do usuário autenticado:
 - Cidade.
 - E-mail da conta.
 - Descrição pessoal.
-- Área de estatísticas de doações, ainda sem dados reais.
+- Estatísticas reais de doações feitas e itens recebidos.
+- Exibição da média e da quantidade de avaliações recebidas.
+- Identificação como "Novo" para usuários que ainda não receberam avaliações.
 - Opções de menu para histórico de doações, ajuda e segurança e painel administrativo.
 - Opção de sair da conta.
 - Lista de usuários bloqueados, exibida quando há usuários bloqueados, com opção de desbloqueio.
@@ -199,6 +205,8 @@ Funcionalidades implementadas:
 - Cancelamento do interesse com remoção do respectivo documento no Firestore.
 - Opção de bloquear ou desbloquear o doador pelo diálogo de denúncia.
 - Ocultação dos detalhes e das ações da publicação quando existe bloqueio entre os usuários.
+- Exibição da média e da quantidade de avaliações recebidas pelo doador.
+- Identificação do doador como "Novo" quando ainda não possui avaliações.
 
 A tela identifica se a publicação pertence ao usuário autenticado por meio da comparação entre o UID da sessão e o campo `usuarioId` da publicação.
 
@@ -266,6 +274,8 @@ Funcionalidades implementadas:
 - Acesso à conversa individual com cada pessoa interessada.
 - Abertura de conversas existentes ou criação de novas conversas.
 - Possibilidade de conversar com qualquer interessado, independentemente de ele ter sido escolhido para receber a doação.
+- Exibição da média e da quantidade de avaliações de cada interessado.
+- Identificação como "Novo" para interessados sem avaliações.
 
 O `InteresseControl` recupera os dados necessários do perfil do usuário e os armazena junto ao registro de interesse.
 
@@ -375,7 +385,13 @@ Quando uma doação é reaberta, o registro anterior permanece no histórico com
 
 A consulta das doações utiliza o UID do usuário autenticado e a lista de participantes armazenada em cada documento.
 
-Os cards também apresentam o botão "Avaliar" nas doações com status `concluida`. Atualmente, o botão está implementado somente visualmente, sem funcionalidade de avaliação.
+Os cards das doações concluídas apresentam a opção "Avaliar", permitindo que o usuário atribua uma nota à outra parte da doação.
+
+Ao selecionar essa opção, o aplicativo abre uma janela inferior com o título "Como foi a experiência?", identificação da publicação, seleção de uma a cinco estrelas e campo opcional para comentário. O envio fica disponível após a seleção de uma nota.
+
+Cada participante pode avaliar a outra parte uma única vez por registro de doação. A avaliação pode ser realizada tanto nas doações feitas quanto nas recebidas. Após o envio, a opção "Avaliar" é substituída pela nota atribuída, representada por estrelas.
+
+As avaliações são atualizadas nos resumos dos usuários, permitindo consultar a média e a quantidade de avaliações recebidas.
 
 ### 15. Notificações
 
@@ -604,6 +620,34 @@ Os históricos são consultados por meio do campo `participantes`, permitindo qu
 
 Os registros de doações não são excluídos automaticamente quando uma publicação é removida, preservando as informações históricas da conclusão.
 
+#### Coleção `avaliacoes`
+
+Cada avaliação é armazenada como um documento na coleção `avaliacoes` do Cloud Firestore.
+
+O identificador do documento é formado pela combinação do ID da doação com o UID do avaliador, utilizando a estrutura `${doacaoId}_${avaliadorId}`. Isso impede que o mesmo participante avalie mais de uma vez o mesmo registro de doação, permitindo que ambas as partes realizem suas avaliações independentemente.
+
+Os principais campos são:
+
+| Campo | Descrição |
+|---|---|
+| `doacaoId` | Identificador do registro de doação avaliado |
+| `publicacaoId` | Identificador da publicação relacionada |
+| `avaliadorId` | UID do usuário que realizou a avaliação |
+| `avaliadoId` | UID do usuário que recebeu a avaliação |
+| `nota` | Nota atribuída, de 1 a 5 estrelas |
+| `comentario` | Comentário opcional, limitado a 500 caracteres |
+| `dataCriacao` | Data e horário do registro, definidos pelo servidor |
+
+O `AvaliacaoControl` é responsável por registrar avaliações, acompanhar a avaliação de um participante em determinada doação e consultar os resumos de avaliações de cada usuário.
+
+A criação de uma avaliação ocorre por meio de uma transação do Firestore, que verifica a existência da doação, seu status `concluida`, a participação do usuário autenticado e a inexistência de uma avaliação anterior daquele participante para o mesmo registro.
+
+O sistema permite que o doador avalie o beneficiário e que o beneficiário avalie o doador. As duas avaliações são independentes.
+
+A média e a quantidade de avaliações são calculadas a partir dos documentos associados ao campo `avaliadoId`. Esses dados são utilizados na tela de perfil, nos detalhes das publicações e na lista de interessados.
+
+Usuários que ainda não receberam avaliações são identificados como "Novo".
+
 #### Coleção `conversas`
 
 Cada conversa é armazenada como um documento na coleção `conversas`.
@@ -681,7 +725,7 @@ Os documentos são criados com status inicial `pendente`. A consulta e o gerenci
 
 ### Regras de segurança
 
-O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `doacoes`, `conversas`, `denuncias` e às subcoleções `interesses`, `mensagens`, `notificacoes` e `bloqueados`.
+O arquivo `firestore.rules` contém as regras de acesso às coleções `usuarios`, `publicacoes`, `doacoes`, `conversas`, `denuncias`, `avaliacoes` e às subcoleções `interesses`, `mensagens`, `notificacoes` e `bloqueados`.
 
 As regras exigem autenticação para as operações permitidas e verificam a relação entre o usuário autenticado e o documento acessado.
 
@@ -747,6 +791,21 @@ A coleção `doacoes` possui regras específicas:
 - A reabertura deve ocorrer em conjunto com a atualização correspondente da publicação.
 - A atualização é restrita aos campos `status` e `dataReabertura`.
 - A exclusão dos registros de doações é bloqueada.
+
+A coleção `avaliacoes` possui regras específicas:
+
+- Somente usuários autenticados podem consultar as avaliações.
+- Somente usuários autenticados podem criar avaliações.
+- O avaliador registrado deve corresponder ao UID da conta autenticada.
+- O avaliado deve ser diferente do avaliador.
+- A nota deve ser um número inteiro entre 1 e 5.
+- O comentário deve ser uma string com até 500 caracteres.
+- O documento deve utilizar o identificador formado pelo ID da doação e pelo UID do avaliador.
+- A criação deve estar vinculada a um registro de doação existente com status `concluida`.
+- O avaliador deve ser um dos participantes da doação.
+- O usuário avaliado deve ser o outro participante do registro.
+- A data de criação deve corresponder ao horário do servidor.
+- A atualização e a exclusão de avaliações são bloqueadas.
 
 A coleção `conversas` e sua subcoleção `mensagens` possuem regras específicas:
 
@@ -832,6 +891,7 @@ desapegai/
 │   ├── app.dart
 │   ├── firebase_options.dart
 │   ├── controller/
+│   │   ├── avaliacao_control.dart
 │   │   ├── bloqueio_control.dart
 │   │   ├── cadastro_control.dart
 │   │   ├── chat_control.dart
@@ -845,6 +905,7 @@ desapegai/
 │   │   ├── sessao_control.dart
 │   │   └── usuario_control.dart
 │   ├── model/
+│   │   ├── avaliacao.dart
 │   │   ├── conversa.dart
 │   │   ├── denuncia.dart
 │   │   ├── doacao.dart
@@ -928,7 +989,7 @@ A Home é apresentada pelo `AuthGate` quando o Firebase informa que existe um us
 - **Dart:** linguagem de programação.
 - **Firebase Core:** inicialização do Firebase no aplicativo.
 - **Firebase Authentication:** cadastro, login, recuperação de senha e gerenciamento de sessão.
-- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos bloqueios entre usuários, dos registros de doações, das conversas, das mensagens, das notificações e das denúncias.
+- **Cloud Firestore:** armazenamento dos perfis dos usuários, das publicações, dos interesses, dos bloqueios entre usuários, dos registros de doações, das avaliações e seus resumos, das conversas, das mensagens, das notificações e das denúncias.
 - **Cloudinary:** armazenamento e disponibilização das imagens das publicações.
 - **image_picker:** seleção de imagens pela galeria do dispositivo.
 - **HTTP:** comunicação com a API do Cloudinary.
@@ -1175,13 +1236,28 @@ Testes funcionais realizados durante o desenvolvimento:
 - [x] Exibição da lista de usuários bloqueados no perfil.
 - [x] Restauração da visibilidade das publicações após o desbloqueio.
 - [x] Restauração do envio de mensagens após o desbloqueio.
+- [x] Avaliação do beneficiário pelo doador.
+- [x] Avaliação do doador pelo beneficiário.
+- [x] Permissão para ambas as partes avaliarem a mesma doação.
+- [x] Seleção de notas entre 1 e 5 estrelas.
+- [x] Envio de avaliação sem comentário.
+- [x] Envio de avaliação com comentário.
+- [x] Validação do limite de 500 caracteres no comentário.
+- [x] Prevenção de avaliações duplicadas para o mesmo participante e doação.
+- [x] Bloqueio de avaliações em doações não concluídas.
+- [x] Atualização da média e da quantidade de avaliações recebidas.
+- [x] Exibição de "Novo" para usuários sem avaliações.
+- [x] Exibição dos resumos de avaliações no perfil.
+- [x] Exibição dos resumos de avaliações nos detalhes das publicações.
+- [x] Exibição dos resumos de avaliações na tela de interessados.
+- [x] Substituição da opção "Avaliar" pelas estrelas após o envio.
+- [x] Preservação dos resumos de avaliações durante as atualizações de estado da doação.
 
 A análise estática com `flutter analyze` foi executada durante o desenvolvimento. Na verificação mais recente, não foram identificados erros. Permanecem apontamentos informativos e avisos de lint e depreciação no projeto.
 
 ## Funcionalidades pendentes
 
 - [ ] Exclusão dos arquivos de imagem no Cloudinary ao remover uma publicação.
-- [ ] Avaliações.
 - [ ] Implementação do painel administrativo, incluindo consulta e gerenciamento das denúncias.
 - [ ] Testes de interface em diferentes dispositivos Android.
 - [ ] Aprimoramentos de segurança para o upload de imagens, incluindo a migração para upload assinado por backend.
@@ -1190,7 +1266,6 @@ A análise estática com `flutter analyze` foi executada durante o desenvolvimen
 
 ### Funcionalidades posteriores
 
-- Desenvolver avaliações.
 - Implementar o painel administrativo para consulta e gerenciamento das denúncias.
 - Aprimorar a segurança da infraestrutura e do upload de imagens.
 
