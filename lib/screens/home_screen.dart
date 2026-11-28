@@ -351,8 +351,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _construirListaPublicacoes(
-      AsyncSnapshot<List<Publicacao>> snapshot,
-      ) {
+      AsyncSnapshot<List<Publicacao>> snapshot, {
+        required bool tecladoAberto,
+      }) {
     if (snapshot.connectionState == ConnectionState.waiting) {
       return const Center(
         child: CircularProgressIndicator(),
@@ -433,52 +434,54 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        SizedBox(
-          height: 52,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: categorias.length,
-            separatorBuilder: (context, index) =>
-            const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final categoria = categorias[index];
-              final selecionada = _categoria == categoria;
+        if (!tecladoAberto) ...[
+          SizedBox(
+            height: 52,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: categorias.length,
+              separatorBuilder: (context, index) =>
+              const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final categoria = categorias[index];
+                final selecionada = _categoria == categoria;
 
-              return ChoiceChip(
-                label: Text(
-                  categoria,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: selecionada ? Colors.white : Colors.black,
+                return ChoiceChip(
+                  label: Text(
+                    categoria,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: selecionada ? Colors.white : Colors.black,
+                    ),
                   ),
-                ),
-                selected: selecionada,
-                showCheckmark: false,
-                backgroundColor: Colors.white,
-                selectedColor: AppColors.green,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                onSelected: (selecionado) {
-                  setState(() {
-                    _categoria = selecionado ? categoria : 'Todos';
-                  });
-                },
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            '${publicacoesFiltradas.length} itens disponíveis',
-            style: const TextStyle(
-              color: AppColors.muted,
+                  selected: selecionada,
+                  showCheckmark: false,
+                  backgroundColor: Colors.white,
+                  selectedColor: AppColors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  onSelected: (selecionado) {
+                    setState(() {
+                      _categoria = selecionado ? categoria : 'Todos';
+                    });
+                  },
+                );
+              },
             ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '${publicacoesFiltradas.length} itens disponíveis',
+              style: const TextStyle(
+                color: AppColors.muted,
+              ),
+            ),
+          ),
+        ],
         Expanded(
           child: publicacoesFiltradas.isEmpty
               ? Center(
@@ -509,7 +512,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tecladoAberto = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -517,6 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (!tecladoAberto)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     16,
@@ -601,6 +607,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
+                if (!tecladoAberto)
                 FutureBuilder<Usuario?>(
                   future: _usuarioFuture,
                   builder: (context, snapshot) {
@@ -670,7 +677,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    tecladoAberto ? 8 : 16,
+                    16,
+                    tecladoAberto ? 8 : 16,
+                  ),
                   child: TextField(
                     onChanged: (valor) {
                       setState(() {
@@ -699,7 +711,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: StreamBuilder<List<Publicacao>>(
                     stream: _publicacoesStream,
                     builder: (context, snapshot) {
-                      return _construirListaPublicacoes(snapshot);
+                      return _construirListaPublicacoes(
+                        snapshot,
+                        tecladoAberto: tecladoAberto,
+                      );
                     },
                   ),
                 ),

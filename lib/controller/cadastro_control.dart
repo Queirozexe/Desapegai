@@ -48,7 +48,7 @@ class CadastroControl {
     final usuario = Usuario(
       uid: user.uid,
       nome: nome.trim(),
-      email: email.trim(),
+      email: user.email ?? email.trim(),
       cidade: cidade.trim(),
     );
 

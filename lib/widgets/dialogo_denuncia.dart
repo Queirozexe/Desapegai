@@ -177,11 +177,17 @@ class _DialogoDenunciaState extends State<DialogoDenuncia> {
 
   @override
   Widget build(BuildContext context) {
+    final alturaMaxima = MediaQuery.sizeOf(context).height * 0.85;
+
     return AlertDialog(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
       scrollable: true,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      constraints: BoxConstraints(maxHeight: alturaMaxima),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 12,
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
       ),
