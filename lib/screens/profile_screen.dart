@@ -40,6 +40,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool _processandoDesbloqueio = false;
 
+  static const bool _exibirPainelAdministrativo = false;
+
   @override
   void initState() {
     super.initState();
@@ -592,18 +594,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 },
                               ),
 
-                              const Divider(height: 1, indent: 56),
+                              if (_exibirPainelAdministrativo) ...[
+                                const Divider(height: 1, indent: 56),
 
-                              _buildOpcaoPerfil(
-                                icone: Icons.admin_panel_settings_outlined,
-                                titulo: 'Painel administrativo',
-                                etiqueta: 'Admin',
-                                onTap: () {
-                                  _aviso(
-                                    'O painel administrativo ainda não está disponível.',
-                                  );
-                                },
-                              ),
+                                _buildOpcaoPerfil(
+                                  icone: Icons.admin_panel_settings_outlined,
+                                  titulo: 'Painel administrativo',
+                                  etiqueta: 'Admin',
+                                  onTap: () {
+                                    _aviso(
+                                      'O painel administrativo ainda não está disponível.',
+                                    );
+                                  },
+                                ),
+                              ],
                             ],
                           ),
                         ),
